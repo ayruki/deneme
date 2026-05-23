@@ -5,6 +5,9 @@ import com.lagradost.cloudstream3.utils.*
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import com.lagradost.nicehttp.NiceResponse
+import com.lagradost.nicehttp.Requests
+import okhttp3.OkHttpClient
 
 object Imu {
     private const val tmdbApiKey = "a2f888b27315e62e471b2d587048f32e"
@@ -102,17 +105,22 @@ object Imu {
             "Origin" to "https://vidmody.com"
         )
 
+        val customClient = OkHttpClient.Builder()
+            .followRedirects(false)
+            .followSslRedirects(false)
+            .build()
+        val redirectClient = Requests(customClient)
+
         var currentUrl = vidmodyUrl
-        var finalResponse: com.lagradost.nicehttp.Response? = null
+        var finalResponse: NiceResponse? = null
         var redirectCount = 0
         val maxRedirects = 5
 
         while (redirectCount < maxRedirects) {
             val res = runCatching {
-                app.get(
+                redirectClient.get(
                     currentUrl,
-                    headers = headers,
-                    redirect = false
+                    headers = headers
                 )
             }.getOrNull() ?: break
 
