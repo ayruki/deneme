@@ -140,17 +140,18 @@ object Imu {
             }
         }
 
-        // ── Step 5: Deliver Direct Vidmody Stream to Player ──────────────────
+        // ── Step 5: Deliver the extractor link to the callback
         callback(
             newExtractorLink(
                 source = "Imu",
                 name = "Imu",
                 url = vidmodyUrl,
-                referer = "https://vidmody.com/",
-                quality = Qualities.Unknown.value,
-                type = ExtractorLinkType.M3U8,
-                headers = headers
-            )
+                type = ExtractorLinkType.M3U8
+            ) {
+                this.referer = "https://vidmody.com/"
+                this.quality = Qualities.Unknown.value
+                this.headers = headers
+            }
         )
 
         return true
