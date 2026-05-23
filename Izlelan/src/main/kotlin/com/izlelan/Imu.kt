@@ -86,7 +86,7 @@ object Imu {
 
         if (imdbId.isNullOrEmpty()) return false
 
-        // ── Step 2: Build Direct Vidmody URL ─────────────────────────────────
+        // ── Step 2: Build Vidmody URL ────────────────────────────────────────
         val paddedEpisode = episode?.toString()?.padStart(2, '0') ?: "01"
         val vidmodyUrl = if (type == "movie") {
             "https://vidmody.com/vs/$imdbId"
@@ -95,23 +95,48 @@ object Imu {
             "https://vidmody.com/vs/$imdbId/s$s/e$paddedEpisode"
         }
 
-        // ── Step 3: Fetch Master HLS Playlist ────────────────────────────────
+        // ── Step 3: Fetch Master HLS Playlist and Follow Redirects Manually ──
         val headers = mapOf(
             "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Referer" to "https://vidmody.com/",
             "Origin" to "https://vidmody.com"
         )
 
-        val response = runCatching {
-            app.get(vidmodyUrl, headers = headers)
-        }.getOrNull() ?: return false
+        var currentUrl = vidmodyUrl
+        var finalResponse: com.lagradost.nicehttp.Response? = null
+        var redirectCount = 0
+        val maxRedirects = 5
 
-        if (response.code != 200 || response.text.isEmpty() || response.text.contains("içerik bulunamadı")) {
+        while (redirectCount < maxRedirects) {
+            val res = runCatching {
+                app.get(
+                    currentUrl,
+                    headers = headers,
+                    redirect = false
+                )
+            }.getOrNull() ?: break
+
+            finalResponse = res
+
+            if (res.code in 300..399) {
+                val location = res.headers["Location"] ?: res.headers["location"]
+                if (!location.isNullOrEmpty()) {
+                    currentUrl = resolveUrl(currentUrl, location)
+                    redirectCount++
+                } else {
+                    break
+                }
+            } else {
+                break
+            }
+        }
+
+        if (finalResponse == null || finalResponse.code != 200 || finalResponse.text.isEmpty() || finalResponse.text.contains("içerik bulunamadı")) {
             return false
         }
 
         // ── Step 4: Parse & Merge Subtitle Tracks Natively ────────────────────
-        val m3u8Content = response.text
+        val m3u8Content = finalResponse.text
         val lines = m3u8Content.split("\n")
         val nameRegex = Regex("""NAME="([^"]+)"""", RegexOption.IGNORE_CASE)
         val uriRegex = Regex("""URI="([^"]+)"""", RegexOption.IGNORE_CASE)
@@ -121,7 +146,7 @@ object Imu {
                 val name = nameRegex.find(line)?.groupValues?.get(1) ?: "Subtitle"
                 val uri = uriRegex.find(line)?.groupValues?.get(1)
                 if (!uri.isNullOrEmpty()) {
-                    val absoluteSubUrl = resolveUrl(vidmodyUrl, uri)
+                    val absoluteSubUrl = resolveUrl(currentUrl, uri)
                     val finalName = if (name.equals("Sesotho", ignoreCase = true)) "Türkçe (Forced)" else name
                     
                     // Merge and cache the subtitle segments
@@ -140,12 +165,12 @@ object Imu {
             }
         }
 
-        // ── Step 5: Deliver the extractor link to the callback
+        // ── Step 5: Deliver the extractor link to the callback ────────────────
         callback(
             newExtractorLink(
                 source = "Imu",
                 name = "Imu",
-                url = vidmodyUrl,
+                url = currentUrl,
                 type = ExtractorLinkType.M3U8
             ) {
                 this.referer = "https://vidmody.com/"
