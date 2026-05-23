@@ -66,12 +66,29 @@ class IzlelanProvider : MainAPI() {
         val type = data.type ?: "movie"
 
         val detailsUrl = if (type == "movie") {
-            "$mainUrl/movie/$id?api_key=$apiKey&language=$langCode&append_to_response=alternative_titles,credits,external_ids,videos,recommendations"
+            "$mainUrl/movie/$id?api_key=$apiKey&language=$langCode&append_to_response=alternative_titles,credits,external_ids,recommendations"
         } else {
-            "$mainUrl/tv/$id?api_key=$apiKey&language=$langCode&append_to_response=alternative_titles,credits,external_ids,videos,recommendations"
+            "$mainUrl/tv/$id?api_key=$apiKey&language=$langCode&append_to_response=alternative_titles,credits,external_ids,recommendations"
         }
 
-        val details = app.get(detailsUrl).parsedSafe<MediaDetail>() ?: return null
+        val videosUrl = if (type == "movie") {
+            "$mainUrl/movie/$id/videos?api_key=$apiKey"
+        } else {
+            "$mainUrl/tv/$id/videos?api_key=$apiKey"
+        }
+
+        var details: MediaDetail? = null
+        var videos: VideoResults? = null
+
+        coroutineScope {
+            val detailsDeferred = async { app.get(detailsUrl).parsedSafe<MediaDetail>() }
+            val videosDeferred = async { app.get(videosUrl).parsedSafe<VideoResults>() }
+            
+            details = detailsDeferred.await()
+            videos = videosDeferred.await()
+        }
+
+        if (details == null) return null
 
         val title = details.title ?: details.name ?: details.original_title ?: details.original_name ?: return null
         val poster = if (details.poster_path != null) "https://image.tmdb.org/t/p/w500${details.poster_path}" else null
@@ -90,7 +107,14 @@ class IzlelanProvider : MainAPI() {
         }.orEmpty()
 
         val recommendations = details.recommendations?.results?.mapNotNull { it.toSearchResponse() }.orEmpty()
-        val trailer = details.videos?.results?.firstOrNull { it.type == "Trailer" }?.key?.let { "https://www.youtube.com/watch?v=$it" }
+        
+        // Multi-lingual fallback trailer selection logic: TR -> EN -> Any
+        val allVideos = videos?.results.orEmpty()
+        val trailerVideo = allVideos.firstOrNull { it.type == "Trailer" && it.iso_639_1 == "tr" }
+            ?: allVideos.firstOrNull { it.type == "Trailer" && it.iso_639_1 == "en" }
+            ?: allVideos.firstOrNull { it.type == "Trailer" }
+        val trailer = trailerVideo?.key?.let { "https://www.youtube.com/watch?v=$it" }
+        
         val imdbId = details.external_ids?.imdb_id
 
         if (type == "movie") {
@@ -255,7 +279,7 @@ class IzlelanProvider : MainAPI() {
         val character: String? = null
     )
     data class VideoResults(val results: List<Video>? = null)
-    data class Video(val key: String? = null, val type: String? = null)
+    data class Video(val key: String? = null, val type: String? = null, val iso_639_1: String? = null)
 
     data class MediaDetailEpisodes(
         val episodes: List<Episode>? = null

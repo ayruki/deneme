@@ -9,7 +9,12 @@ import com.lagradost.cloudstream3.plugins.Plugin
 class IzlelanPlugin: Plugin() {
     private var activity: AppCompatActivity? = null
 
+    companion object {
+        var context: Context? = null
+    }
+
     override fun load(context: Context) {
+        Companion.context = context
         activity = context as? AppCompatActivity
 
         // All providers should be added in this manner

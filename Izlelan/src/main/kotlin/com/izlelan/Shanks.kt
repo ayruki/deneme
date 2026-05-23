@@ -157,18 +157,24 @@ object Shanks {
             val trackMatch = trackRegex.find(putperestHtml)
             if (trackMatch != null) {
                 val tracksText = trackMatch.groupValues[1]
-                val trackObjects = tracksText.split("}").filter { it.contains("file:") }
+                val trackObjects = tracksText.split("}").filter { it.contains("file:") || it.contains("\"file\"") }
                 for (track in trackObjects) {
-                    val fileRegex = Regex("""file:\s*['"]([^'"]+)['"]""")
-                    val labelRegex = Regex("""label:\s*['"]([^'"]+)['"]""")
+                    val fileRegex = Regex("""["']?file["']?\s*:\s*['"]([^'"]+)['"]""")
+                    val labelRegex = Regex("""["']?label["']?\s*:\s*['"]([^'"]+)['"]""")
                     val fileM = fileRegex.find(track)
                     val labelM = labelRegex.find(track)
-                    if (fileM != null && labelM != null) {
+                    if (fileM != null) {
                         val subUrl = fileM.groupValues[1]
-                        val label = labelM.groupValues[1]
+                        var label = labelM?.groupValues?.get(1)?.trim() ?: ""
+                        if (label.isEmpty()) {
+                            label = if (subUrl.contains("tur") || subUrl.contains("tr")) "Türkçe" else "English"
+                        }
                         if (subUrl.endsWith(".vtt")) {
                             val absSubUrl = resolveUrl(putperestFinalUrl, subUrl)
-                            subtitles.add(newSubtitleFile(label, absSubUrl))
+                            val cachedSubUrl = cacheSubtitleLocally(label, absSubUrl, putperestFinalUrl)
+                            if (cachedSubUrl != null) {
+                                subtitles.add(newSubtitleFile(label, cachedSubUrl))
+                            }
                         }
                     }
                 }
@@ -186,24 +192,36 @@ object Shanks {
             )
             for (lang in subLangs) {
                 val vttUrl = "https://$m3u8Domain/uploads/encode/$fileId/${fileId}_${lang["s"]}.vtt"
-                val vttHeaders = streamHeaders + mapOf("Referer" to putperestReferer, "Range" to "bytes=0-0")
-                val vttRes = runCatching { app.get(vttUrl, headers = vttHeaders) }.getOrNull()
-                if (vttRes != null && (vttRes.code < 400 || vttRes.code == 416)) {
-                    subtitles.add(newSubtitleFile(lang["l"] ?: "Subtitle", vttUrl))
+                val cachedSubUrl = cacheSubtitleLocally(lang["l"] ?: "Subtitle", vttUrl, putperestReferer)
+                if (cachedSubUrl != null) {
+                    subtitles.add(newSubtitleFile(lang["l"] ?: "Subtitle", cachedSubUrl))
                 }
             }
         }
 
         if (!m3u8Url.isNullOrEmpty() && !putperestFinalUrl.isNullOrEmpty()) {
+            var finalM3u8Url: String = m3u8Url
+            val cacheDir = IzlelanPlugin.context?.cacheDir
+            if (cacheDir != null) {
+                val cleanedM3u8 = cleanM3u8(m3u8Url, putperestFinalUrl)
+                if (cleanedM3u8 != null) {
+                    val tempFile = java.io.File(cacheDir, "shanks_temp.m3u8")
+                    runCatching {
+                        tempFile.writeText(cleanedM3u8)
+                        finalM3u8Url = tempFile.toURI().toString()
+                    }
+                }
+            }
+
             callback(
                 newExtractorLink(
                     source = "Shanks",
-                    name = "Shanks (HLS)",
-                    url = m3u8Url,
+                    name = "",
+                    url = finalM3u8Url,
                     type = ExtractorLinkType.M3U8
                 ) {
                     this.referer = putperestFinalUrl
-                    this.quality = Qualities.P1080.value
+                    this.quality = Qualities.Unknown.value
                 }
             )
             subtitles.forEach { subtitleCallback(it) }
@@ -211,5 +229,85 @@ object Shanks {
         }
 
         return false
+    }
+
+    private suspend fun cacheSubtitleLocally(label: String, subUrl: String, referer: String): String? {
+        val cacheDir = IzlelanPlugin.context?.cacheDir ?: return null
+        val headers = mapOf(
+            "Referer" to referer,
+            "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        )
+        val vttContent = runCatching { app.get(subUrl, headers = headers).text }.getOrNull() ?: return null
+        if (vttContent.isEmpty() || !vttContent.contains("WEBVTT")) return null
+        
+        val tempSubFile = java.io.File(cacheDir, "shanks_sub_${label.replace(" ", "_")}.vtt")
+        return runCatching {
+            tempSubFile.writeText(vttContent)
+            tempSubFile.toURI().toString()
+        }.getOrNull()
+    }
+
+    private suspend fun cleanM3u8(m3u8Url: String, referer: String): String? {
+        val headers = mapOf(
+            "Referer" to referer,
+            "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        )
+        val res = runCatching { app.get(m3u8Url, headers = headers).text }.getOrNull() ?: return null
+        
+        val lines = res.split("\n")
+        val newLines = mutableListOf<String>()
+        
+        var targetAudioGroupId: String? = null
+        
+        for (line in lines) {
+            val trimmed = line.trim()
+            if (trimmed.isEmpty()) {
+                newLines.add(line)
+                continue
+            }
+            
+            if (trimmed.startsWith("#EXT-X-MEDIA:TYPE=AUDIO")) {
+                val groupId = Regex("""GROUP-ID=["']([^"']+)["']""").find(trimmed)?.groupValues?.get(1)
+                val uri = Regex("""URI=["']([^"']+)["']""").find(trimmed)?.groupValues?.get(1)
+                
+                if (groupId != null) {
+                    if (targetAudioGroupId == null) {
+                        targetAudioGroupId = groupId
+                    }
+                    if (groupId == targetAudioGroupId) {
+                        var newLine = trimmed
+                        if (uri != null && !uri.startsWith("http://") && !uri.startsWith("https://")) {
+                            val absUri = resolveUrl(m3u8Url, uri)
+                            newLine = trimmed.replace(uri, absUri)
+                        }
+                        newLines.add(newLine)
+                    }
+                } else {
+                    newLines.add(trimmed)
+                }
+            } else if (trimmed.startsWith("#EXT-X-STREAM-INF:")) {
+                var newLine = trimmed
+                if (targetAudioGroupId != null) {
+                    val audioMatch = Regex("""AUDIO=["']([^"']+)["']""").find(trimmed)
+                    if (audioMatch != null) {
+                        val currentAudioGroup = audioMatch.groupValues[1]
+                        newLine = trimmed.replace("AUDIO=\"$currentAudioGroup\"", "AUDIO=\"$targetAudioGroupId\"")
+                            .replace("AUDIO='$currentAudioGroup'", "AUDIO='$targetAudioGroupId'")
+                    }
+                }
+                newLines.add(newLine)
+            } else if (trimmed.startsWith("#")) {
+                newLines.add(trimmed)
+            } else {
+                if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
+                    val absUrl = resolveUrl(m3u8Url, trimmed)
+                    newLines.add(absUrl)
+                } else {
+                    newLines.add(trimmed)
+                }
+            }
+        }
+        
+        return newLines.joinToString("\n")
     }
 }
