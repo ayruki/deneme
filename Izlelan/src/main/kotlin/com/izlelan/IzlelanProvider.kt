@@ -204,11 +204,13 @@ class IzlelanProvider : MainAPI() {
         val type = res.type ?: "movie"
         val imdbId = res.imdbId
 
-        // Call both our modular sources to populate links from Imu and Shanks
-        val successImu = Imu.invoke(id, type, res.season, res.episode, subtitleCallback, callback)
-        val successShanks = Shanks.invoke(id, type, imdbId, res.season, res.episode, subtitleCallback, callback)
+        // 1. Önce Imu (Vidmody) kaynaklarını dene — hem film hem dizi destekler
+        val imuSuccess = Imu.invoke(id, type, res.season, res.episode, subtitleCallback, callback)
+        if (imuSuccess) return@coroutineScope true
 
-        successImu || successShanks
+        // 2. Imu bulamazsa Shanks (Filmekseni) kaynağına geç — sadece film
+        val shanksSuccess = Shanks.invoke(id, type, imdbId, res.season, res.episode, subtitleCallback, callback)
+        shanksSuccess
     }
 
     data class LinkData(

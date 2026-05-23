@@ -108,6 +108,9 @@ object Imu {
         val customClient = OkHttpClient.Builder()
             .followRedirects(false)
             .followSslRedirects(false)
+            .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+            .writeTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
             .build()
         val redirectClient = Requests(customClient)
 
