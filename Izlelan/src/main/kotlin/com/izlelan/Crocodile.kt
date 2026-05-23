@@ -98,7 +98,11 @@ object Crocodile {
     }
 
     private fun cleanEscaped(value: String): String {
-        return value
+        // Önce \uXXXX unicode escape'lerini decode et
+        val unicodeDecoded = Regex("""\\u([0-9a-fA-F]{4})""").replace(value) { match ->
+            match.groupValues[1].toInt(16).toChar().toString()
+        }
+        return unicodeDecoded
             .replace("\\/", "/")
             .replace("\\u0026", "&")
             .replace("\\", "")
@@ -268,15 +272,8 @@ object Crocodile {
             ?: vId?.let { loadSource2(baseUrl, iframeUrl, it) }
 
         if (!masterUrl.isNullOrBlank()) {
+            // Sadece tek bir source döndür — dublaj ayrı kaynak olarak eklenmez
             results.add(HlsData("Master HLS", masterUrl, subtitles))
-        }
-
-        val dubMatch = Regex("""["']([^"']+)["'],["'](Türkçe|TÃ¼rkÃ§e)["']""")
-            .find(text)
-        val dubId = dubMatch?.groupValues?.getOrNull(1)
-        val dubUrl = dubId?.let { loadSource2(baseUrl, iframeUrl, it) }
-        if (!dubUrl.isNullOrBlank() && dubUrl != masterUrl) {
-            results.add(HlsData("Turkce Dublaj HLS", dubUrl, emptyList()))
         }
 
         return results
@@ -333,7 +330,7 @@ object Crocodile {
                     callback(
                         newExtractorLink(
                             source = "Crocodile",
-                            name = "Crocodile ${source.name} - ${hls.label}",
+                            name = "Crocodile",
                             url = hls.url,
                             type = ExtractorLinkType.M3U8
                         ) {
@@ -344,6 +341,8 @@ object Crocodile {
                     )
                     found = true
                 }
+                // İlk başarılı Crocodile source bulununca dur, birden fazla gösterme
+                if (found) break
             } else {
                 val loaded = runCatching {
                     loadExtractor(source.url, mainUrl, subtitleCallback, callback)
