@@ -7,13 +7,15 @@ import org.json.JSONObject
 import org.jsoup.Jsoup
 import java.net.URLEncoder
 import javax.crypto.Cipher
+import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.IvParameterSpec
+import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 
-object Crocodile {
+object Smoker {
     private const val tmdbApiKey = "a2f888b27315e62e471b2d587048f32e"
-    private const val mainUrl = "https://dizillahd.com"
-    private const val decryptKey = "9bYMCNQiWsXIYFWYAu7EkdsSbmGBTyUI"
+    private const val mainUrl = "https://dizipal1554.com"
+    private const val pbkdf2Password = "3hPn4uCjTVtfYWcjIcoJQ4cL1WWk1qxXI39egLYOmNv6IblA7eKJz68uU3eLzux1biZLCms0quEjTYniGv5z1JcKbNIsDQFSeIZOBZJz4is6pD7UyWDggWWzTLBQbHcQFpBQdClnuQaMNUHtLHTpzCvZy33p6I7wFBvL4fnXBYH84aUIyWGTRvM2G5cfoNf4705tO2kv"
 
     private val headers = mapOf(
         "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -34,11 +36,6 @@ object Crocodile {
     private data class SeriesInfo(
         val title: String,
         val episodes: List<EpisodeData>
-    )
-
-    private data class SourceData(
-        val name: String,
-        val url: String
     )
 
     private data class HlsData(
@@ -81,24 +78,39 @@ object Crocodile {
         }
     }
 
-    private fun decryptData(encrypted: String?): String {
-        if (encrypted.isNullOrBlank()) return ""
-        return runCatching {
-            val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
-            val key = SecretKeySpec(decryptKey.toByteArray(Charsets.UTF_8), "AES")
-            val iv = IvParameterSpec(ByteArray(16))
-            cipher.init(Cipher.DECRYPT_MODE, key, iv)
-            cipher.doFinal(Base64.decode(encrypted, Base64.DEFAULT)).toString(Charsets.UTF_8)
-        }.getOrDefault("")
+    private fun hexToBytes(hex: String): ByteArray {
+        val len = hex.length
+        val data = ByteArray(len / 2)
+        var i = 0
+        while (i < len) {
+            data[i / 2] = ((Character.digit(hex[i], 16) shl 4) + Character.digit(hex[i + 1], 16)).toByte()
+            i += 2
+        }
+        return data
     }
 
-    private fun decryptedJson(encrypted: String?): JSONObject? {
-        val decrypted = decryptData(encrypted)
-        return runCatching { JSONObject(decrypted) }.getOrNull()
+    private fun decryptDizipal(ciphertext: String, saltHex: String, ivHex: String): String {
+        return try {
+            val salt = hexToBytes(saltHex)
+            val iv = hexToBytes(ivHex)
+            val ciphertextBytes = Base64.decode(ciphertext, Base64.DEFAULT)
+            
+            val spec = PBEKeySpec(pbkdf2Password.toCharArray(), salt, 999, 256)
+            val skf = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA512")
+            val keyBytes = skf.generateSecret(spec).encoded
+            
+            val keySpec = SecretKeySpec(keyBytes, "AES")
+            val ivSpec = IvParameterSpec(iv)
+            val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
+            cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec)
+            
+            String(cipher.doFinal(ciphertextBytes), Charsets.UTF_8)
+        } catch (e: Exception) {
+            ""
+        }
     }
 
     private fun cleanEscaped(value: String): String {
-        // Önce \uXXXX unicode escape'lerini decode et
         val unicodeDecoded = Regex("""\\u([0-9a-fA-F]{4})""").replace(value) { match ->
             match.groupValues[1].toInt(16).toChar().toString()
         }
@@ -128,15 +140,19 @@ object Crocodile {
     private suspend fun search(imdbId: String): List<SearchResult> {
         val encoded = URLEncoder.encode(imdbId, "UTF-8")
         val res = runCatching {
-            app.post("$mainUrl/api/bg/searchContent?searchterm=$encoded", headers = headers)
+            app.post(
+                "$mainUrl/bg/searchcontent", 
+                headers = headers, 
+                data = mapOf("searchterm" to encoded)
+            )
         }.getOrNull() ?: return emptyList()
 
         if (res.code != 200) return emptyList()
         val json = runCatching { JSONObject(res.text) }.getOrNull() ?: return emptyList()
-        if (!json.optBoolean("success")) return emptyList()
+        val data = json.optJSONObject("data") ?: return emptyList()
+        if (!data.optBoolean("state")) return emptyList()
 
-        val parsed = decryptedJson(json.optString("response")) ?: return emptyList()
-        val results = parsed.optJSONArray("result") ?: return emptyList()
+        val results = data.optJSONArray("result") ?: return emptyList()
         return (0 until results.length()).mapNotNull { index ->
             val item = results.optJSONObject(index) ?: return@mapNotNull null
             val slug = item.optString("used_slug").ifBlank { item.optString("slug") }
@@ -153,77 +169,26 @@ object Crocodile {
         val res = runCatching { app.get(url, headers = headers) }.getOrNull() ?: return null
         if (res.code != 200) return null
 
-        val nextData = Jsoup.parse(res.text).selectFirst("script#__NEXT_DATA__")?.data()
-            ?: return null
-        val json = runCatching { JSONObject(nextData) }.getOrNull() ?: return null
-        val secureData = json.optJSONObject("props")
-            ?.optJSONObject("pageProps")
-            ?.optString("secureData")
-            .orEmpty()
-        val parsed = decryptedJson(secureData) ?: return null
-
-        val contentItem = parsed.optJSONObject("contentItem")
-        val title = contentItem?.optString("used_title")
-            ?.ifBlank { contentItem.optString("original_title", "Series") }
-            ?: "Series"
-
-        val seasons = parsed.optJSONObject("RelatedResults")
-            ?.optJSONObject("getSerieSeasonAndEpisodes")
-            ?.optJSONArray("result")
-            ?: return SeriesInfo(title, emptyList())
+        val document = Jsoup.parse(res.text)
+        val title = document.title().replace("Dizipal", "").trim()
 
         val episodes = mutableListOf<EpisodeData>()
-        for (i in 0 until seasons.length()) {
-            val seasonItem = seasons.optJSONObject(i) ?: continue
-            val seasonNo = seasonItem.optInt("season_no", -1)
-            val eps = seasonItem.optJSONArray("episodes") ?: continue
-            for (j in 0 until eps.length()) {
-                val ep = eps.optJSONObject(j) ?: continue
-                val epNo = ep.optInt("episode_no", -1)
-                val epSlug = ep.optString("used_slug").ifBlank { ep.optString("episode_slug") }
-                val epUrl = fixUrl(epSlug) ?: continue
+        val episodeRegex = Regex("""bolum/[a-zA-Z0-9\-]+?-(\d+)x(\d+)""")
+
+        document.select("a").forEach { a ->
+            val href = a.attr("href").orEmpty()
+            val match = episodeRegex.find(href)
+            if (match != null) {
+                val seasonNo = match.groupValues[1].toIntOrNull() ?: -1
+                val epNo = match.groupValues[2].toIntOrNull() ?: -1
+                val epUrl = fixUrl(href) ?: return@forEach
                 if (seasonNo > 0 && epNo > 0) {
                     episodes.add(EpisodeData(seasonNo, epNo, epUrl))
                 }
             }
         }
 
-        return SeriesInfo(title, episodes)
-    }
-
-    private suspend fun getVideoLinks(epUrl: String): List<SourceData> {
-        val res = runCatching { app.get(epUrl, headers = headers) }.getOrNull() ?: return emptyList()
-        if (res.code != 200) return emptyList()
-
-        val nextData = Jsoup.parse(res.text).selectFirst("script#__NEXT_DATA__")?.data()
-            ?: return emptyList()
-        val json = runCatching { JSONObject(nextData) }.getOrNull() ?: return emptyList()
-        val secureData = json.optJSONObject("props")
-            ?.optJSONObject("pageProps")
-            ?.optString("secureData")
-            .orEmpty()
-        val parsed = decryptedJson(secureData) ?: return emptyList()
-
-        val sources = parsed.optJSONObject("RelatedResults")
-            ?.optJSONObject("getEpisodeSources")
-            ?.optJSONArray("result")
-            ?: return emptyList()
-
-        val iframeRegex = Regex("""src=["']([^"']+)["']""", RegexOption.IGNORE_CASE)
-        return (0 until sources.length()).mapNotNull { index ->
-            val item = sources.optJSONObject(index) ?: return@mapNotNull null
-            val iframe = iframeRegex.find(item.optString("source_content"))
-                ?.groupValues
-                ?.getOrNull(1)
-            val iframeUrl = fixUrl(iframe) ?: return@mapNotNull null
-            val name = item.optString("source_name", "Source")
-            val lang = item.optString("language_name")
-            val quality = item.optString("quality_name")
-            val fullName = listOf(name, "($lang $quality)".trim())
-                .joinToString(" ")
-                .trim()
-            SourceData(fullName, iframeUrl)
-        }
+        return SeriesInfo(title, episodes.distinctBy { it.url })
     }
 
     private suspend fun extractContentx(iframeUrl: String): List<HlsData> {
@@ -272,7 +237,6 @@ object Crocodile {
             ?: vId?.let { loadSource2(baseUrl, iframeUrl, it) }
 
         if (!masterUrl.isNullOrBlank()) {
-            // Sadece tek bir source döndür — dublaj ayrı kaynak olarak eklenmez
             results.add(HlsData("Master HLS", masterUrl, subtitles))
         }
 
@@ -282,7 +246,7 @@ object Crocodile {
     private suspend fun loadSource2(baseUrl: String, referer: String, videoId: String): String? {
         val res = runCatching {
             app.get(
-                "$baseUrl/source2.php?v=$videoId",
+                "$baseUrl/source2.php?v={videoId}",
                 headers = mapOf("Referer" to referer, "User-Agent" to headers.getValue("User-Agent"))
             )
         }.getOrNull() ?: return null
@@ -309,51 +273,66 @@ object Crocodile {
         val target = info.episodes.firstOrNull { it.season == season && it.episode == episode }
             ?: return false
 
-        val links = getVideoLinks(target.url)
-        var found = false
-        val seenSubUrls = mutableSetOf<String>()
+        // Fetch episode page to extract [data-rm-k]
+        val epPageRes = runCatching { app.get(target.url, headers = headers) }.getOrNull() ?: return false
+        if (epPageRes.code != 200) return false
 
-        for (source in links) {
-            val isContentx = listOf("pichive", "picholes", "contentx", "dplayer", "four.pichive")
-                .any { source.url.contains(it, ignoreCase = true) }
+        val epDoc = Jsoup.parse(epPageRes.text)
+        val dataEl = epDoc.selectFirst("[data-rm-k]") ?: return false
+        val encryptedJsonStr = dataEl.text()
+        if (encryptedJsonStr.isBlank()) return false
 
-            if (isContentx) {
-                val hlsLinks = extractContentx(source.url)
-                for (hls in hlsLinks) {
-                    val subHeaders = mapOf(
-                        "Referer" to source.url,
-                        "User-Agent" to headers.getValue("User-Agent")
-                    )
-                    hls.subtitles.forEach { sub ->
-                        if (seenSubUrls.add(sub.url)) {
-                            subtitleCallback(SubtitleFile(sub.name, sub.url).apply { headers = subHeaders })
-                        }
+        val encryptedJson = runCatching { JSONObject(encryptedJsonStr) }.getOrNull() ?: return false
+        val ciphertext = encryptedJson.optString("ciphertext")
+        val salt = encryptedJson.optString("salt")
+        val iv = encryptedJson.optString("iv")
+
+        if (ciphertext.isNullOrBlank() || salt.isNullOrBlank() || iv.isNullOrBlank()) return false
+
+        val decryptedIframeUrl = decryptDizipal(ciphertext, salt, iv)
+        var iframeUrl = cleanEscaped(decryptedIframeUrl)
+        if (iframeUrl.isBlank()) return false
+        if (iframeUrl.startsWith("//")) iframeUrl = "https:$iframeUrl"
+
+        val isContentx = listOf("pichive", "picholes", "contentx", "dplayer", "four.pichive")
+            .any { iframeUrl.contains(it, ignoreCase = true) }
+
+        if (isContentx) {
+            val hlsLinks = extractContentx(iframeUrl)
+            var found = false
+            val seenSubUrls = mutableSetOf<String>()
+
+            for (hls in hlsLinks) {
+                val subHeaders = mapOf(
+                    "Referer" to iframeUrl,
+                    "User-Agent" to headers.getValue("User-Agent")
+                )
+                hls.subtitles.forEach { sub ->
+                    if (seenSubUrls.add(sub.url)) {
+                        subtitleCallback(SubtitleFile(sub.name, sub.url).apply { headers = subHeaders })
                     }
-
-                    callback(
-                        newExtractorLink(
-                            source = "Crocodile",
-                            name = "Crocodile",
-                            url = hls.url,
-                            type = ExtractorLinkType.M3U8
-                        ) {
-                            this.referer = source.url
-                            this.quality = Qualities.Unknown.value
-                            this.headers = subHeaders
-                        }
-                    )
-                    found = true
                 }
-                // İlk başarılı Crocodile source bulununca dur, birden fazla gösterme
-                if (found) break
-            } else {
-                val loaded = runCatching {
-                    loadExtractor(source.url, mainUrl, subtitleCallback, callback)
-                }.getOrDefault(false)
-                if (loaded) found = true
-            }
-        }
 
-        return found
+                callback(
+                    newExtractorLink(
+                        source = "Smoker",
+                        name = "Smoker",
+                        url = hls.url,
+                        type = ExtractorLinkType.M3U8
+                    ) {
+                        this.referer = iframeUrl
+                        this.quality = Qualities.Unknown.value
+                        this.headers = subHeaders
+                    }
+                )
+                found = true
+            }
+            return found
+        } else {
+            val loaded = runCatching {
+                loadExtractor(iframeUrl, mainUrl, subtitleCallback, callback)
+            }.getOrDefault(false)
+            return loaded
+        }
     }
 }

@@ -204,16 +204,27 @@ class IzlelanProvider : MainAPI() {
         val type = res.type ?: "movie"
         val imdbId = res.imdbId
 
+        val seenSubUrls = mutableSetOf<String>()
+        val dedupSubCallback = { sub: SubtitleFile ->
+            if (seenSubUrls.add(sub.url)) {
+                subtitleCallback(sub)
+            }
+        }
+
         // 1. Önce Imu (Vidmody) kaynaklarını dene — hem film hem dizi destekler
-        val imuSuccess = Imu.invoke(id, type, res.season, res.episode, subtitleCallback, callback)
+        val imuSuccess = Imu.invoke(id, type, res.season, res.episode, dedupSubCallback, callback)
         if (imuSuccess) return@coroutineScope true
 
         // 2. Imu bulamazsa Shanks (Filmekseni) kaynağına geç — sadece film
-        val shanksSuccess = Shanks.invoke(id, type, imdbId, res.season, res.episode, subtitleCallback, callback)
+        val shanksSuccess = Shanks.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
         if (shanksSuccess) return@coroutineScope true
 
         // 3. Shanks bulamazsa Crocodile (Dizilla) kaynagina gec -- sadece dizi
-        Crocodile.invoke(id, type, imdbId, res.season, res.episode, subtitleCallback, callback)
+        val crocodileSuccess = Crocodile.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        if (crocodileSuccess) return@coroutineScope true
+
+        // 4. Crocodile bulamazsa Smoker (Dizipal) kaynağına geç — sadece dizi
+        Smoker.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
     }
 
     data class LinkData(

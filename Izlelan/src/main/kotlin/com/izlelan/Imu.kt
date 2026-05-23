@@ -102,19 +102,27 @@ object Imu {
         val nameRegex = Regex("""NAME="([^"]+)"""", RegexOption.IGNORE_CASE)
         val uriRegex = Regex("""URI="([^"]+)"""", RegexOption.IGNORE_CASE)
 
+        val parsedSubs = mutableListOf<Pair<String, String>>()
         lines.forEach { line ->
             if (line.contains("TYPE=SUBTITLES", ignoreCase = true)) {
                 val name = nameRegex.find(line)?.groupValues?.get(1) ?: "Subtitle"
                 val uri = uriRegex.find(line)?.groupValues?.get(1)
                 if (!uri.isNullOrEmpty()) {
                     val absoluteSubUrl = resolveUrl(currentUrl, uri)
-                    val finalName = if (name.equals("Sesotho", ignoreCase = true)) "Türkçe (Forced)" else name
-                    subtitleCallback(
-                        SubtitleFile(finalName, absoluteSubUrl).apply {
-                            this.headers = headers
-                        }
-                    )
+                    parsedSubs.add(Pair(name, absoluteSubUrl))
                 }
+            }
+        }
+
+        val seenSubUrls = mutableSetOf<String>()
+
+        parsedSubs.forEach { (name, url) ->
+            if (seenSubUrls.add(url)) {
+                subtitleCallback(
+                    SubtitleFile(name, url).apply {
+                        this.headers = headers
+                    }
+                )
             }
         }
 
