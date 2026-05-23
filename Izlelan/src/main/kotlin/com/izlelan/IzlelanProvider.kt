@@ -211,20 +211,21 @@ class IzlelanProvider : MainAPI() {
             }
         }
 
+        var anySuccess = false
+
         // 1. Önce Imu (Vidmody) kaynaklarını dene — hem film hem dizi destekler
-        val imuSuccess = Imu.invoke(id, type, res.season, res.episode, dedupSubCallback, callback)
-        if (imuSuccess) return@coroutineScope true
+        if (Imu.invoke(id, type, res.season, res.episode, dedupSubCallback, callback)) anySuccess = true
 
         // 2. Imu bulamazsa Shanks (Filmekseni) kaynağına geç — sadece film
-        val shanksSuccess = Shanks.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
-        if (shanksSuccess) return@coroutineScope true
+        if (Shanks.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)) anySuccess = true
 
         // 3. Shanks bulamazsa Crocodile (Dizilla) kaynagina gec -- sadece dizi
-        val crocodileSuccess = Crocodile.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
-        if (crocodileSuccess) return@coroutineScope true
+        if (Crocodile.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)) anySuccess = true
 
         // 4. Crocodile bulamazsa Smoker (Dizipal) kaynağına geç — sadece dizi
-        Smoker.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        if (Smoker.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)) anySuccess = true
+
+        anySuccess
     }
 
     data class LinkData(

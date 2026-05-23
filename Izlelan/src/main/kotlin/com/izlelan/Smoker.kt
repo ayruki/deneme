@@ -200,7 +200,7 @@ object Smoker {
         if (page.code != 200) return emptyList()
 
         val text = page.text
-        val vId = Regex("""window\.openPlayer\('([^']+)'""").find(text)?.groupValues?.getOrNull(1)
+        val vId = Regex("""openPlayer\s*\(\s*['"]([^'"]+)['"]""").find(text)?.groupValues?.getOrNull(1)
             ?: queryParam(iframeUrl, "v")
 
         val subtitles = mutableListOf<SubtitleData>()
@@ -244,9 +244,10 @@ object Smoker {
     }
 
     private suspend fun loadSource2(baseUrl: String, referer: String, videoId: String): String? {
+        val encodedId = java.net.URLEncoder.encode(videoId, "UTF-8")
         val res = runCatching {
             app.get(
-                "$baseUrl/source2.php?v={videoId}",
+                "$baseUrl/source2.php?v=$encodedId",
                 headers = mapOf("Referer" to referer, "User-Agent" to headers.getValue("User-Agent"))
             )
         }.getOrNull() ?: return null
