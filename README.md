@@ -1,58 +1,38 @@
-**⚠️ This is currently under development, dont use it yet if you're not comfortable with constantly merging new changes**
+# 🚀 İzlelan - Cloudstream Extension
 
-# `Cloudstream3 Plugin Repo Template`
+İzlelan, TMDB API altyapısını kullanarak yüksek hızlı akış kaynakları üzerinden dizi, film, anime ve çizgi filmleri izlemenizi sağlayan premium bir Cloudstream eklentisidir.
 
-Template for a [Cloudstream3](https://github.com/recloudstream) plugin repo
+---
 
-**⚠️ Make sure you check "Include all branches" when using this template**
+## 🌟 Özellikler
+- **TMDB API**: Arama, kategoriler, detaylar, fragmanlar, benzer yapımlar ve oyuncu kadrosu.
+- **Türkçe Dil Desteği**: Arayüz, afişler ve metadata tamamen Türkçe (`tr-TR`) gelir.
+- **Yüksek Hızlı Video Kaynakları**: `VidSrc.to`, `Vidlink.pro`, `Embed.su`, `VidSrc.me` vb. üzerinden en güncel akış adreslerini otomatik yakalar.
+- **Subtitles & Multi-Audio**: Çoklu dil ve altyazı desteği.
 
- 
-## Getting started with writing your first plugin
+---
 
-This template includes 1 example plugin.
+## 🛠 Kurulum (Telefonunuza Ekleme)
 
-1. Open the root build.gradle.kts, read the comments and replace all the placeholders
-2. Familiarize yourself with the project structure. Most files are commented
-3. Build or deploy your first plugin using:
-   - Windows: `.\gradlew.bat ExampleProvider:make` or `.\gradlew.bat ExampleProvider:deployWithAdb`
-   - Linux & Mac: `./gradlew ExampleProvider:make` or `./gradlew ExampleProvider:deployWithAdb`
+Eklentiyi Cloudstream uygulamanıza eklemek için:
 
+1. Cloudstream uygulamasını açın.
+2. **Ayarlar > Eklentiler > Depo Ekle (Add Repository)** yolunu izleyin.
+3. İsim kısmına `İzlelan` yazın, URL kısmına ise aşağıdaki adresi yapıştırıp ekleyin:
+   ```text
+   https://raw.githubusercontent.com/ayruki/deneme/builds/repo.json
+   ```
+4. Eklentiler listesinden **İzlelan**'ı bulun ve **Yükle (Install)** butonuna basın!
 
-## Granting All Files Access on Newer Android Devices
+---
 
-For local plugin testing, you need to grant the app "All Files Access" on newer Android devices (Android 11 and above). Here’s how to do it:
+## 📦 Yerel Derleme ve Test
 
-### Using ADB
+Eklentiyi yerel makinenizde test etmek isterseniz:
+- Windows: `.\gradlew.bat Izlelan:make`
+- Yerel ADB Cihazına Yükleme: `.\gradlew.bat :Izlelan:deployWithAdb`
 
-* `adb shell appops set --uid PACKAGE_NAME MANAGE_EXTERNAL_STORAGE allow`
-* Replace `PACKAGE_NAME` with the name of the package for the Cloudstream3 version you are using:
-   - debug: `com.lagradost.cloudstream3.prerelease.debug`
-   - prerelease: `com.lagradost.cloudstream3.prerelease`
-   - stable: `com.lagradost.cloudstream3`
+---
 
-### Manually
-
-1. **Open Settings**: Go to your device’s Settings menu.
-
-2. **Navigate to Special Access**:
-   - Tap on "Apps & notifications" or "Apps".
-   - Select "Special app access" or "Special access".
-
-3. **Select All Files Access**:
-   - Tap on "All files access".
-   - It may be under the three vertical dots menu towards the top of the screen.
-
-4. **Grant Access to the App**: Find the app in the list and tap on it to toggle it, if it is not already enabled.
-
-6. **Restart the App**: Close and reopen the app to apply the changes.
-
-
-## License
-
-Everything in this repo is released into the public domain. You may use it however you want with no conditions whatsoever
-
-
-## Attribution
-
-This template as well as the gradle plugin and the whole plugin system is **heavily** based on [Aliucord](https://github.com/Aliucord).
-*Go use it, it's a great mobile discord client mod!*
+## 📄 Lisans
+Bu proje tamamen kamuya açık (public domain) olarak yayınlanmıştır. Dilediğiniz gibi kullanıp geliştirebilirsiniz.
