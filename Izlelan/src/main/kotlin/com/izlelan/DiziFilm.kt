@@ -132,8 +132,8 @@ object DiziFilm {
 
         callback(
             newExtractorLink(
-                source = "DiziFilm",
-                name = "DiziFilm",
+                source = "Loki",
+                name = "Loki",
                 url = hlsUrl,
                 type = ExtractorLinkType.M3U8
             ) {
