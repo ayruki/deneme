@@ -9,7 +9,7 @@ import java.net.URLEncoder
 
 object Enel {
     private const val tmdbApiKey = "a2f888b27315e62e471b2d587048f32e"
-    private const val mainUrl = "https://selcukflix.net"
+    private val mainUrl = BaseUrls.get("enel", "https://selcukflix.net")
 
     private val headers = mapOf(
         "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -186,7 +186,7 @@ object Enel {
             ?: vId?.let { loadSource2(baseUrl, iframeUrl, it) }
 
         if (!masterUrl.isNullOrBlank()) {
-            results.add(HlsData("Altyazılı - Master HLS", masterUrl, subtitles))
+            results.add(HlsData("Enel", masterUrl, subtitles))
         }
 
         // Extractor for Turkish Dubbing
@@ -194,7 +194,7 @@ object Enel {
         if (!dubId.isNullOrBlank()) {
             val dubMasterUrl = loadSource2(baseUrl, iframeUrl, dubId)
             if (!dubMasterUrl.isNullOrBlank()) {
-                results.add(HlsData("Türkçe Dublaj - Master HLS", dubMasterUrl, subtitles))
+                results.add(HlsData("Enel", dubMasterUrl, subtitles))
             }
         }
 
@@ -290,7 +290,7 @@ object Enel {
                         callback(
                             newExtractorLink(
                                 source = "Enel",
-                                name = "Enel (${hls.label})",
+                                name = hls.label,
                                 url = hls.url,
                                 type = ExtractorLinkType.M3U8
                             ) {

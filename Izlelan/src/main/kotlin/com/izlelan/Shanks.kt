@@ -42,17 +42,18 @@ object Shanks {
         if (imdbId.isNullOrEmpty()) return false
 
         // ── Step 2: Search Filmekseni ──────────────────────────────────────────
+        val base = BaseUrls.get("shanks", "https://filmekseni.cc")
         val searchHeaders = mapOf(
             "User-Agent"       to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Accept"           to "application/json, text/javascript, */*; q=0.01",
             "Accept-Language"  to "tr,en;q=0.9",
             "Content-Type"     to "application/x-www-form-urlencoded; charset=UTF-8",
             "X-Requested-With" to "XMLHttpRequest",
-            "Referer"          to "https://filmekseni.cc/"
+            "Referer"          to "$base/"
         )
 
         var searchRes = runCatching {
-            app.post("https://filmekseni.cc/search/", headers = searchHeaders, data = mapOf("query" to imdbId))
+            app.post("$base/search/", headers = searchHeaders, data = mapOf("query" to imdbId))
         }.getOrNull() ?: return false
 
         var json    = runCatching { JSONObject(searchRes.text) }.getOrNull()
@@ -61,7 +62,7 @@ object Shanks {
         if ((results == null || results.length() == 0) && imdbId.startsWith("tt")) {
             val singleTId = imdbId.substring(1)
             searchRes = runCatching {
-                app.post("https://filmekseni.cc/search/", headers = searchHeaders, data = mapOf("query" to singleTId))
+                app.post("$base/search/", headers = searchHeaders, data = mapOf("query" to singleTId))
             }.getOrNull() ?: return false
             json    = runCatching { JSONObject(searchRes.text) }.getOrNull()
             results = json?.optJSONArray("result")
@@ -70,14 +71,14 @@ object Shanks {
         if (results == null || results.length() == 0) return false
 
         val slug         = results.getJSONObject(0).getString("slug")
-        val moviePageUrl = "https://filmekseni.cc/$slug/"
+        val moviePageUrl = "$base/$slug/"
 
         // ── Step 3: Fetch Movie Page ───────────────────────────────────────────
         val browserHeaders = mapOf(
             "User-Agent"     to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Accept"         to "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
             "Accept-Language" to "tr,en;q=0.9",
-            "Referer"        to "https://filmekseni.cc/"
+            "Referer"        to "$base/"
         )
         val moviePageRes = runCatching { app.get(moviePageUrl, headers = browserHeaders) }.getOrNull() ?: return false
 

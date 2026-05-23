@@ -6,9 +6,30 @@ import com.lagradost.cloudstream3.LoadResponse.Companion.addTrailer
 import com.lagradost.cloudstream3.utils.*
 import com.lagradost.cloudstream3.utils.AppUtils.parseJson
 import com.lagradost.cloudstream3.utils.AppUtils.toJson
+import org.json.JSONObject
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+
+object BaseUrls {
+    private var urls: JSONObject? = null
+
+    init {
+        try {
+            val stream = this::class.java.classLoader?.getResourceAsStream("base_urls.json")
+            if (stream != null) {
+                val jsonStr = stream.bufferedReader().use { it.readText() }
+                urls = JSONObject(jsonStr)
+            }
+        } catch (e: Exception) {
+            // Fallback
+        }
+    }
+
+    fun get(key: String, fallback: String): String {
+        return urls?.optString(key)?.ifBlank { fallback } ?: fallback
+    }
+}
 
 class IzlelanProvider : MainAPI() {
     override var mainUrl = "https://api.themoviedb.org/3"
@@ -227,8 +248,24 @@ class IzlelanProvider : MainAPI() {
         val smokerSuccess = Smoker.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
         if (smokerSuccess) return@coroutineScope true
 
-        // 5. Smoker bulamazsa Enel (SelcukFlix) kaynağına geç — sadece film
-        Enel.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        // 5. Smoker bulamazsa DiziFilm kaynağına geç — hem film hem dizi
+        val dizifilmSuccess = DiziFilm.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        if (dizifilmSuccess) return@coroutineScope true
+
+        // 6. DiziFilm bulamazsa Xebec (FullHDFilmizlesene) kaynağına geç — sadece film
+        val xebecSuccess = Xebec.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        if (xebecSuccess) return@coroutineScope true
+
+        // 7. Xebec bulamazsa Enel (SelcukFlix) kaynağına geç — sadece film
+        val enelSuccess = Enel.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        if (enelSuccess) return@coroutineScope true
+
+        // 8. Enel bulamazsa Vegapunk kaynağına geç — film, dizi ve anime destekler
+        val vegapunkSuccess = Vegapunk.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        if (vegapunkSuccess) return@coroutineScope true
+
+        // 9. Vegapunk bulamazsa Sabo (CinemaCity) kaynağına geç — yerli/yabancı film ve dizi
+        Sabo.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
     }
 
     data class LinkData(

@@ -14,7 +14,7 @@ import javax.crypto.spec.SecretKeySpec
 
 object Smoker {
     private const val tmdbApiKey = "a2f888b27315e62e471b2d587048f32e"
-    private const val mainUrl = "https://dizipal1554.com"
+    private val mainUrl = BaseUrls.get("smoker", "https://dizipal1554.com")
     private const val pbkdf2Password = "3hPn4uCjTVtfYWcjIcoJQ4cL1WWk1qxXI39egLYOmNv6IblA7eKJz68uU3eLzux1biZLCms0quEjTYniGv5z1JcKbNIsDQFSeIZOBZJz4is6pD7UyWDggWWzTLBQbHcQFpBQdClnuQaMNUHtLHTpzCvZy33p6I7wFBvL4fnXBYH84aUIyWGTRvM2G5cfoNf4705tO2kv"
 
     private val headers = mapOf(

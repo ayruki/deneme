@@ -12,7 +12,7 @@ import javax.crypto.spec.SecretKeySpec
 
 object Crocodile {
     private const val tmdbApiKey = "a2f888b27315e62e471b2d587048f32e"
-    private const val mainUrl = "https://dizillahd.com"
+    private val mainUrl = BaseUrls.get("crocodile", "https://dizillahd.com")
     private const val decryptKey = "9bYMCNQiWsXIYFWYAu7EkdsSbmGBTyUI"
 
     private val headers = mapOf(

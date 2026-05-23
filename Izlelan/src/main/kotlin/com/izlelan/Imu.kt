@@ -38,19 +38,20 @@ object Imu {
         if (imdbId.isNullOrEmpty()) return false
 
         // ── Step 2: Build Vidmody URL ────────────────────────────────────────
+        val base = BaseUrls.get("imu", "https://vidmody.com")
         val paddedEpisode = episode?.toString()?.padStart(2, '0') ?: "01"
         val vidmodyUrl = if (type == "movie") {
-            "https://vidmody.com/vs/$imdbId"
+            "$base/vs/$imdbId"
         } else {
             val s = season ?: 1
-            "https://vidmody.com/vs/$imdbId/s$s/e$paddedEpisode"
+            "$base/vs/$imdbId/s$s/e$paddedEpisode"
         }
 
         // ── Step 3: Fetch Master HLS Playlist and Follow Redirects Manually ──
         val headers = mapOf(
             "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Referer" to "https://vidmody.com/",
-            "Origin" to "https://vidmody.com"
+            "Referer" to "$base/",
+            "Origin" to base
         )
 
         val customClient = OkHttpClient.Builder()
@@ -134,7 +135,7 @@ object Imu {
                 url = currentUrl,
                 type = ExtractorLinkType.M3U8
             ) {
-                this.referer = "https://vidmody.com/"
+                this.referer = "$base/"
                 this.quality = Qualities.Unknown.value
                 this.headers = headers
             }
