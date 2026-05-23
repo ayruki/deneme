@@ -1,13 +1,11 @@
 package com.izlelan
 
-// Authorized TMDB Provider for Izlelan Extension
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.LoadResponse.Companion.addImdbId
 import com.lagradost.cloudstream3.LoadResponse.Companion.addTrailer
+import com.lagradost.cloudstream3.utils.*
 import com.lagradost.cloudstream3.utils.AppUtils.parseJson
 import com.lagradost.cloudstream3.utils.AppUtils.toJson
-import com.lagradost.cloudstream3.utils.ExtractorLink
-import com.lagradost.cloudstream3.utils.loadExtractor
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -179,42 +177,18 @@ class IzlelanProvider : MainAPI() {
     ): Boolean = coroutineScope {
         val res = parseJson<LinkData>(data)
         val id = res.id ?: return@coroutineScope false
-        val imdbId = res.imdbId
-        val season = res.season
-        val episode = res.episode
         val type = res.type ?: "movie"
+        val imdbId = res.imdbId
 
-        val urls = mutableListOf<String>()
+        // Call our modular Shanks Filmekseni source
+        val success = Shanks.invoke(id, type, imdbId, res.season, res.episode, subtitleCallback, callback)
+        if (success) return@coroutineScope true
 
-        if (type == "movie") {
-            urls.add("https://vidsrc.to/embed/movie/$id")
-            urls.add("https://vidlink.pro/embed/movie/$id")
-            urls.add("https://embed.su/embed/movie/$id")
-            if (!imdbId.isNullOrEmpty()) {
-                urls.add("https://vidsrc.me/embed/movie?imdb=$imdbId")
-                urls.add("https://vidsrc.to/embed/movie/$imdbId")
-            }
-        } else {
-            if (season != null && episode != null) {
-                urls.add("https://vidsrc.to/embed/tv/$id/$season/$episode")
-                urls.add("https://vidlink.pro/embed/tv/$id/$season/$episode")
-                urls.add("https://embed.su/embed/tv/$id/$season/$episode")
-                if (!imdbId.isNullOrEmpty()) {
-                    urls.add("https://vidsrc.me/embed/tv?imdb=$imdbId&season=$season&episode=$episode")
-                    urls.add("https://vidsrc.to/embed/tv/$imdbId/$season/$episode")
-                }
-            }
-        }
+        // For future modular sources, you can easily append:
+        // val success2 = AnotherSource.invoke(id, type, imdbId, res.season, res.episode, subtitleCallback, callback)
+        // if (success2) return@coroutineScope true
 
-        urls.map { url ->
-            async {
-                runCatching {
-                    loadExtractor(url, subtitleCallback, callback)
-                }
-            }
-        }.awaitAll()
-
-        true
+        false
     }
 
     data class LinkData(
