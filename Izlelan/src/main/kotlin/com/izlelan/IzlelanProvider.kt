@@ -1,5 +1,6 @@
 package com.izlelan
 
+// Authorized TMDB Provider for Izlelan Extension
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.LoadResponse.Companion.addImdbId
 import com.lagradost.cloudstream3.LoadResponse.Companion.addTrailer
