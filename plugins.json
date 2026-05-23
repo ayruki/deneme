@@ -1,0 +1,25 @@
+[
+    {
+        "iconUrl": "https://raw.githubusercontent.com/Kraptor123/Cs-Karma/master/icon.png",
+        "fileHash": "sha256-3a8695a391ca61ac40708c9e5d4862355b925373ff2bd6f5f2d31403620ed648",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/ayruki/deneme",
+        "fileSize": 312562,
+        "status": 1,
+        "language": "tr",
+        "authors": [
+            "Antigravity"
+        ],
+        "tvTypes": [
+            "Movie",
+            "TvSeries",
+            "Anime",
+            "Cartoon"
+        ],
+        "version": 100088,
+        "internalName": "Izlelan",
+        "description": "Izlelan TMDB-powered Cloudstream extension with support for various video sources.",
+        "url": "https://raw.githubusercontent.com/ayruki/deneme/builds/Izlelan.cs3",
+        "name": "Izlelan"
+    }
+]
