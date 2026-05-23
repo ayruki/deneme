@@ -210,7 +210,10 @@ class IzlelanProvider : MainAPI() {
 
         // 2. Imu bulamazsa Shanks (Filmekseni) kaynağına geç — sadece film
         val shanksSuccess = Shanks.invoke(id, type, imdbId, res.season, res.episode, subtitleCallback, callback)
-        shanksSuccess
+        if (shanksSuccess) return@coroutineScope true
+
+        // 3. Shanks bulamazsa Crocodile (Dizilla) kaynagina gec -- sadece dizi
+        Crocodile.invoke(id, type, imdbId, res.season, res.episode, subtitleCallback, callback)
     }
 
     data class LinkData(
