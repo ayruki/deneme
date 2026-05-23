@@ -195,7 +195,7 @@ object Shanks {
         callback(
             newExtractorLink(
                 source = "Shanks",
-                name   = "",
+                name   = "Shanks",
                 url    = m3u8Url,
                 type   = ExtractorLinkType.M3U8
             ) {

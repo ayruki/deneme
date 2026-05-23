@@ -204,15 +204,11 @@ class IzlelanProvider : MainAPI() {
         val type = res.type ?: "movie"
         val imdbId = res.imdbId
 
-        // Call our modular Shanks Filmekseni source
-        val success = Shanks.invoke(id, type, imdbId, res.season, res.episode, subtitleCallback, callback)
-        if (success) return@coroutineScope true
+        // Call both our modular sources to populate links from Imu and Shanks
+        val successImu = Imu.invoke(id, type, res.season, res.episode, subtitleCallback, callback)
+        val successShanks = Shanks.invoke(id, type, imdbId, res.season, res.episode, subtitleCallback, callback)
 
-        // For future modular sources, you can easily append:
-        // val success2 = AnotherSource.invoke(id, type, imdbId, res.season, res.episode, subtitleCallback, callback)
-        // if (success2) return@coroutineScope true
-
-        false
+        successImu || successShanks
     }
 
     data class LinkData(
