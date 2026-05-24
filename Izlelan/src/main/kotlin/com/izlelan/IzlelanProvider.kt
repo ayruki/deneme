@@ -79,16 +79,7 @@ class IzlelanProvider : MainAPI() {
 
         val localTitle = title ?: name
         val originalTitle = original_title ?: original_name
-        val searchTitle = if (!localTitle.isNullOrBlank() && !originalTitle.isNullOrBlank() && !localTitle.equals(originalTitle, ignoreCase = true)) {
-            val isUnreadable = originalTitle.any { it.code > 127 && (it.code in 0x3000..0x9FFF || it.code in 0xAC00..0xD7AF) }
-            if (isUnreadable) {
-                localTitle
-            } else {
-                "$localTitle ($originalTitle)"
-            }
-        } else {
-            localTitle ?: originalTitle ?: return null
-        }
+        val searchTitle = localTitle ?: originalTitle ?: return null
 
         val mediaTypeString = media_type ?: if (first_air_date != null || name != null || original_name != null) "tv" else "movie"
         val tvType = if (mediaTypeString == "tv") TvType.TvSeries else TvType.Movie
@@ -181,16 +172,7 @@ class IzlelanProvider : MainAPI() {
             englishAltTitle ?: rawOriginalTitle
         }
 
-        val title = if (!localTitle.isNullOrBlank() && !readableOriginalTitle.isNullOrBlank() && !localTitle.equals(readableOriginalTitle, ignoreCase = true)) {
-            val isUnreadable = readableOriginalTitle.any { it.code > 127 && (it.code in 0x3000..0x9FFF || it.code in 0xAC00..0xD7AF) }
-            if (isUnreadable) {
-                localTitle
-            } else {
-                "$localTitle ($readableOriginalTitle)"
-            }
-        } else {
-            localTitle ?: readableOriginalTitle ?: return null
-        }
+        val title = localTitle ?: readableOriginalTitle ?: return null
 
         val poster = if (details.poster_path != null) "https://image.tmdb.org/t/p/w500${details.poster_path}" else null
         val backdrop = if (details.backdrop_path != null) "https://image.tmdb.org/t/p/original${details.backdrop_path}" else null
@@ -364,7 +346,8 @@ class IzlelanProvider : MainAPI() {
 
         val seenSubUrls = mutableSetOf<String>()
         val dedupSubCallback = { sub: SubtitleFile ->
-            if (seenSubUrls.add(sub.url)) {
+            val normalized = sub.url.substringBefore("?")
+            if (seenSubUrls.add(normalized)) {
                 subtitleCallback(sub)
             }
         }
