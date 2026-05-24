@@ -8,7 +8,6 @@ import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.ExtractorLinkType
 import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.cloudstream3.utils.newExtractorLink
-import com.lagradost.cloudstream3.utils.M3u8Helper
 import com.lagradost.nicehttp.NiceResponse
 import com.lagradost.nicehttp.Requests
 import okhttp3.OkHttpClient
@@ -105,14 +104,18 @@ object Imu {
             return false
         }
 
-        M3u8Helper.generateM3u8(
-            source = "Imu",
-            streamUrl = currentUrl,
-            referer = "$base/",
-            headers = headers
-        ).forEach {
-            callback(it)
-        }
+        callback(
+            newExtractorLink(
+                source = "Imu",
+                name = "Imu",
+                url = currentUrl,
+                type = ExtractorLinkType.M3U8
+            ) {
+                this.referer = "$base/"
+                this.quality = Qualities.Unknown.value
+                this.headers = headers
+            }
+        )
 
         return true
     }

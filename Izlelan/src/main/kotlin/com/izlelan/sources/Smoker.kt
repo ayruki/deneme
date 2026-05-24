@@ -317,14 +317,18 @@ object Smoker {
                     }
                 }
 
-                M3u8Helper.generateM3u8(
-                    source = "Smoker",
-                    streamUrl = hls.url,
-                    referer = iframeUrl,
-                    headers = subHeaders
-                ).forEach {
-                    callback(it)
-                }
+                callback(
+                    newExtractorLink(
+                        source = "Smoker",
+                        name = "Smoker",
+                        url = hls.url,
+                        type = ExtractorLinkType.M3U8
+                    ) {
+                        this.referer = iframeUrl
+                        this.quality = Qualities.Unknown.value
+                        this.headers = subHeaders
+                    }
+                )
                 found = true
             }
             return found

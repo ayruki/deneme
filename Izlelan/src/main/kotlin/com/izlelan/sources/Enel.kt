@@ -290,14 +290,18 @@ object Enel {
                             }
                         }
 
-                        M3u8Helper.generateM3u8(
-                            source = "Enel",
-                            streamUrl = hls.url,
-                            referer = fixedIframeUrl,
-                            headers = subHeaders
-                        ).forEach {
-                            callback(it)
-                        }
+                        callback(
+                            newExtractorLink(
+                                source = "Enel",
+                                name = hls.label,
+                                url = hls.url,
+                                type = ExtractorLinkType.M3U8
+                            ) {
+                                this.referer = fixedIframeUrl
+                                this.quality = Qualities.Unknown.value
+                                this.headers = subHeaders
+                            }
+                        )
                         found = true
                     }
                 } else {
