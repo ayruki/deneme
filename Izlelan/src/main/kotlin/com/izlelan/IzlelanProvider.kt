@@ -236,6 +236,7 @@ class IzlelanProvider : MainAPI() {
 
         // TheIntroDB V3 Entegrasyonu (Arka planda çalışır, maks 2 saniye bekler)
         val introDbJob = async {
+            return@async
             runCatching {
                 kotlinx.coroutines.withTimeoutOrNull(2000L) {
                     val dataUri = TheIntroDB.fetchChapters(id, imdbId, type, res.season, res.episode)
