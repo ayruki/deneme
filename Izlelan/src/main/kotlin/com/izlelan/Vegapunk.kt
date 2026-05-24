@@ -52,6 +52,7 @@ object Vegapunk {
         val html = res.text
         val match = Regex("""href="([^"]+)"[^>]*id="downloadButton"""").find(html)
             ?: Regex("""id="downloadButton"[^>]*href="([^"]+)"""").find(html)
+            ?: Regex("""href="(https://download[^"]+mediafire\.com/[^"]+)"""").find(html)
 
         return match?.groupValues?.getOrNull(1) ?: url
     }
@@ -103,6 +104,7 @@ object Vegapunk {
         val candidates = if (type == "movie") {
             results.filter { it.type == "movie" }
         } else {
+            if (season == null || episode == null) return false
             results.filter { it.type == "serie" || it.type == "anime" }
         }
 
@@ -127,22 +129,21 @@ object Vegapunk {
         }
 
         // Find match by TMDB ID
-        val match = detailsResults.find { (_, json) ->
+        val matchResult = detailsResults.find { (_, json) ->
             val tmdbIdRaw = json.opt("tmdb_id")?.toString()
             tmdbIdRaw != null && tmdbIdRaw == id.toString()
         } ?: return false
 
-        val bestMatchDetail = match.second
+        val detailData = matchResult.second
         var videoLink: String? = null
 
         if (type == "movie") {
-            val videos = bestMatchDetail.optJSONArray("videos")
+            val videos = detailData.optJSONArray("videos")
             if (videos != null && videos.length() > 0) {
                 videoLink = videos.optJSONObject(0)?.optString("link")
             }
         } else {
-            if (season == null || episode == null) return false
-            val seasons = bestMatchDetail.optJSONArray("seasons")
+            val seasons = detailData.optJSONArray("seasons")
             if (seasons != null) {
                 // Strict Match by Season Number & Episode Number
                 for (i in 0 until seasons.length()) {
@@ -181,16 +182,14 @@ object Vegapunk {
                                 }
                             }
 
-                            if (!epName.isNullOrBlank()) {
-                                val epMatch = Regex("""(\d+)\.\s*Bölüm""", RegexOption.IGNORE_CASE).find(epName)
-                                if (epMatch != null) {
-                                    val parsedEp = epMatch.groupValues[1].toIntOrNull()
-                                    if (parsedEp == episode) {
-                                        val videos = epObj.optJSONArray("videos")
-                                        if (videos != null && videos.length() > 0) {
-                                            videoLink = videos.optJSONObject(0)?.optString("link")
-                                            break
-                                        }
+                            if (epName.isNotBlank()) {
+                                val nameMatch = Regex("""(\d+)\.\s*Bölüm""", RegexOption.IGNORE_CASE).find(epName)
+                                val nameEpNum = nameMatch?.groupValues?.getOrNull(1)?.toIntOrNull()
+                                if (nameEpNum == episode) {
+                                    val videos = epObj.optJSONArray("videos")
+                                    if (videos != null && videos.length() > 0) {
+                                        videoLink = videos.optJSONObject(0)?.optString("link")
+                                        break
                                     }
                                 }
                             }
@@ -204,7 +203,14 @@ object Vegapunk {
         if (videoLink.isNullOrBlank()) return false
 
         val finalVideoUrl = resolveMediafire(videoLink)
-        val directExtensions = listOf(".mp4", ".mkv", ".avi", ".ts", "/file/")
+
+        if (finalVideoUrl.contains("mediafire.com/file/")) {
+            return runCatching {
+                loadExtractor(finalVideoUrl, "$mainUrl/", subtitleCallback, callback)
+            }.getOrDefault(false)
+        }
+
+        val directExtensions = listOf(".mp4", ".mkv", ".avi", ".ts")
         val isDirect = directExtensions.any { finalVideoUrl.contains(it, ignoreCase = true) } || finalVideoUrl.contains(".m3u8")
 
         if (isDirect) {
