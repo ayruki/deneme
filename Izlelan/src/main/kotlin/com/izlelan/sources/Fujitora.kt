@@ -40,7 +40,7 @@ object Fujitora {
 
     private suspend fun getEpisodeGroupMapping(tvId: Int): Map<Int, SeasonEpisode>? {
         val groupsRes = runCatching { 
-            app.get("https://api.themoviedb.org/3/tv/$tvId/episode_groups?api_key=$tmdbApiKey")
+            app.get("https://api.themoviedb.org/3/tv/$tvId/episode_groups?api_key=$TMDB_API_KEY")
                 .parsedSafe<EpisodeGroupResponse>()
         }.getOrNull() ?: return null
 
@@ -49,7 +49,7 @@ object Fujitora {
 
         val groupId = seasonsGroup.id
         val detailRes = runCatching {
-            app.get("https://api.themoviedb.org/3/tv/episode_group/$groupId?api_key=$tmdbApiKey")
+            app.get("https://api.themoviedb.org/3/tv/episode_group/$groupId?api_key=$TMDB_API_KEY")
                 .parsedSafe<GroupDetailResponse>()
         }.getOrNull() ?: return null
 
