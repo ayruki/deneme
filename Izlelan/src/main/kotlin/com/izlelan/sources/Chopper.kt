@@ -66,7 +66,7 @@ object Chopper {
         val encTitle = cleanEncode(cleanEncode(title))
         val isMovie = type.equals("movie", ignoreCase = true)
 
-        val servers = listOf("mb-flix", "cdn", "moviebox", "1movies", "m4uhd")
+        val servers = listOf("mb-flix")
         var foundAny = false
 
         for (server in servers) {

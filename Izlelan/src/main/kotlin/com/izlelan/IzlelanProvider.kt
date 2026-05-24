@@ -413,6 +413,14 @@ class IzlelanProvider : MainAPI() {
         val chopperSuccess = runCatching { Chopper.invoke(id, type, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
         if (chopperSuccess) return@coroutineScope true
 
+        // 13. Chopper bulamazsa Nusjuro (YFlix) kaynağına geç — yabancı film ve dizi
+        val nusjuroSuccess = runCatching { Nusjuro.invoke(id, type, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
+        if (nusjuroSuccess) return@coroutineScope true
+
+        // 14. Nusjuro bulamazsa Shamrock (Fembox) kaynağına geç — yabancı film ve dizi
+        val shamrockSuccess = runCatching { Shamrock.invoke(id, type, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
+        if (shamrockSuccess) return@coroutineScope true
+
         return@coroutineScope false
     }
 
