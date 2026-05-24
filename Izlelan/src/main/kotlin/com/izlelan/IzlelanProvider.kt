@@ -250,16 +250,16 @@ class IzlelanProvider : MainAPI() {
         // Tüm kaynakları aynı anda (paralel) çalıştırarak linkleri topla.
         // Bu sayede bir kaynak arızalı link verse bile diğer kaynakların linkleri listeye eklenmiş olur
         // ve Cloudstream "Hiç bağlantı bulunamadı" hatası vermek yerine çalışan linki bulana kadar dener.
-        kotlinx.coroutines.launch { Imu.invoke(id, type, res.season, res.episode, dedupSubCallback, callback) }
-        kotlinx.coroutines.launch { Shanks.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }
-        kotlinx.coroutines.launch { Crocodile.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }
-        kotlinx.coroutines.launch { Smoker.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }
-        kotlinx.coroutines.launch { Loki.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }
-        kotlinx.coroutines.launch { Xebec.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }
-        kotlinx.coroutines.launch { Enel.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }
-        kotlinx.coroutines.launch { Fujitora.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }
-        kotlinx.coroutines.launch { Vegapunk.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }
-        kotlinx.coroutines.launch { Sabo.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }
+        async { Imu.invoke(id, type, res.season, res.episode, dedupSubCallback, callback) }
+        async { Shanks.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }
+        async { Crocodile.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }
+        async { Smoker.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }
+        async { Loki.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }
+        async { Xebec.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }
+        async { Enel.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }
+        async { Fujitora.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }
+        async { Vegapunk.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }
+        async { Sabo.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }
 
         return@coroutineScope true
     }
