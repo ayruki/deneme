@@ -1,21 +1,20 @@
 package com.izlelan.sources
 
-import com.izlelan.IzlelanProvider
+import android.util.Base64
 import com.izlelan.BaseUrls
-
-import com.lagradost.cloudstream3.*
-import com.lagradost.cloudstream3.utils.*
+import com.izlelan.IzlelanProvider
+import com.lagradost.cloudstream3.SubtitleFile
+import com.lagradost.cloudstream3.app
+import com.lagradost.cloudstream3.utils.ExtractorLink
+import com.lagradost.cloudstream3.utils.ExtractorLinkType
+import com.lagradost.cloudstream3.utils.Qualities
+import com.lagradost.cloudstream3.utils.newExtractorLink
 import com.lagradost.nicehttp.NiceResponse
 import com.lagradost.nicehttp.Requests
 import okhttp3.OkHttpClient
 
 object Imu {
     private const val tmdbApiKey = "a2f888b27315e62e471b2d587048f32e"
-
-    private data class StreamVariant(
-        val url: String,
-        val quality: Int
-    )
 
     private fun resolveUrl(base: String, relative: String): String {
         return if (relative.startsWith("http://") || relative.startsWith("https://")) {
@@ -35,59 +34,40 @@ object Imu {
         return when (lowered) {
             "sesotho",
             "southern sotho",
-            "güney setho dili",
-            "güney sotho dili",
-            "south sotho" -> "Türkçe (Forced)"
-            "english",
-            "ingilizce",
-            "i̇ngilizce" -> "İngilizce"
-            "turkish",
-            "turkce",
-            "türkçe" -> "Türkçe"
+            "g\u00fcney setho dili",
+            "g\u00fcney sotho dili",
+            "south sotho" -> "T\u00fcrk\u00e7e (Forced)"
             else -> normalized
         }
     }
 
-    private fun subtitleKey(name: String): String {
-        return when (normalizeSubtitleName(name).lowercase()) {
-            "türkçe (forced)" -> "tr-forced"
-            "türkçe" -> "tr"
-            "i̇ngilizce", "ingilizce" -> "en"
-            else -> normalizeSubtitleName(name).lowercase()
+    private fun rewriteMasterPlaylist(masterUrl: String, content: String): String {
+        val uriRegex = Regex("""URI="([^"]+)"""", RegexOption.IGNORE_CASE)
+        val nameRegex = Regex("""NAME="([^"]+)"""", RegexOption.IGNORE_CASE)
+
+        return content.lines().joinToString("\n") { rawLine ->
+            var line = rawLine
+
+            if (line.contains("TYPE=SUBTITLES", ignoreCase = true)) {
+                line = uriRegex.replace(line) { match ->
+                    val absoluteUrl = resolveUrl(masterUrl, match.groupValues[1])
+                    """URI="$absoluteUrl""""
+                }
+                line = nameRegex.replace(line) { match ->
+                    val displayName = normalizeSubtitleName(match.groupValues[1])
+                    """NAME="$displayName""""
+                }
+            } else if (line.isNotBlank() && !line.startsWith("#")) {
+                line = resolveUrl(masterUrl, line.trim())
+            }
+
+            line
         }
     }
 
-    private fun parseStreamVariants(masterUrl: String, content: String): List<StreamVariant> {
-        val lines = content.lines()
-        val variants = mutableListOf<StreamVariant>()
-        var pendingQuality = Qualities.Unknown.value
-
-        lines.forEach { rawLine ->
-            val line = rawLine.trim()
-            when {
-                line.startsWith("#EXT-X-STREAM-INF", ignoreCase = true) -> {
-                    val resolution = Regex("""RESOLUTION=\d+x(\d+)""", RegexOption.IGNORE_CASE)
-                        .find(line)
-                        ?.groupValues
-                        ?.getOrNull(1)
-                    pendingQuality = resolution?.let { getQualityFromName("${it}p") } ?: Qualities.Unknown.value
-                }
-
-                line.isNotEmpty() && !line.startsWith("#") -> {
-                    if (pendingQuality != Qualities.Unknown.value || variants.isEmpty()) {
-                        variants.add(
-                            StreamVariant(
-                                url = resolveUrl(masterUrl, line),
-                                quality = pendingQuality
-                            )
-                        )
-                    }
-                    pendingQuality = Qualities.Unknown.value
-                }
-            }
-        }
-
-        return variants.distinctBy { it.url }
+    private fun toDataUri(content: String): String {
+        val encoded = Base64.encodeToString(content.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+        return "data:application/vnd.apple.mpegurl;base64,$encoded"
     }
 
     suspend fun invoke(
@@ -98,7 +78,6 @@ object Imu {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        // ── Step 1: TMDB to IMDB ID Resolution ───────────────────────────────
         val typePath = if (type == "movie") "movie" else "tv"
         val extUrl = "https://api.themoviedb.org/3/$typePath/$id/external_ids?api_key=$tmdbApiKey"
         val extRes = runCatching { app.get(extUrl).parsedSafe<IzlelanProvider.ExternalIds>() }.getOrNull()
@@ -106,7 +85,6 @@ object Imu {
 
         if (imdbId.isNullOrEmpty()) return false
 
-        // ── Step 2: Build Vidmody URL ────────────────────────────────────────
         val base = BaseUrls.get("imu", "https://vidmody.com")
         val paddedEpisode = episode?.toString()?.padStart(2, '0') ?: "01"
         val vidmodyUrl = if (type == "movie") {
@@ -116,7 +94,6 @@ object Imu {
             "$base/vs/$imdbId/s$s/e$paddedEpisode"
         }
 
-        // ── Step 3: Fetch Master HLS Playlist and Follow Redirects Manually ──
         val headers = mapOf(
             "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Referer" to "$base/",
@@ -160,77 +137,30 @@ object Imu {
             }
         }
 
-        if (finalResponse == null || finalResponse.code != 200 || finalResponse.text.isEmpty() || finalResponse.text.contains("içerik bulunamadı")) {
+        if (
+            finalResponse == null ||
+            finalResponse.code != 200 ||
+            finalResponse.text.isEmpty() ||
+            finalResponse.text.contains("i\u00e7erik bulunamad\u0131", ignoreCase = true) ||
+            !finalResponse.text.contains("#EXTM3U")
+        ) {
             return false
         }
 
-        // Parse subtitle tracks without blocking stream delivery.
-        // Vidmody subtitles are HLS playlists with thousands of small VTT files.
-        // Pass the playlist through instead of downloading and merging every segment.
-        val m3u8Content = finalResponse.text
-        val lines = m3u8Content.split("\n")
-        val nameRegex = Regex("""NAME="([^"]+)"""", RegexOption.IGNORE_CASE)
-        val uriRegex = Regex("""URI="([^"]+)"""", RegexOption.IGNORE_CASE)
+        val rewrittenPlaylist = rewriteMasterPlaylist(currentUrl, finalResponse.text)
 
-        val parsedSubs = mutableListOf<Pair<String, String>>()
-        lines.forEach { line ->
-            if (line.contains("TYPE=SUBTITLES", ignoreCase = true)) {
-                val name = nameRegex.find(line)?.groupValues?.get(1) ?: "Subtitle"
-                val uri = uriRegex.find(line)?.groupValues?.get(1)
-                if (!uri.isNullOrEmpty()) {
-                    val absoluteSubUrl = resolveUrl(currentUrl, uri)
-                    parsedSubs.add(Pair(name, absoluteSubUrl))
-                }
+        callback(
+            newExtractorLink(
+                source = "Imu",
+                name = "Imu",
+                url = toDataUri(rewrittenPlaylist),
+                type = ExtractorLinkType.M3U8
+            ) {
+                this.referer = "$base/"
+                this.quality = Qualities.Unknown.value
+                this.headers = headers
             }
-        }
-
-        val seenSubUrls = mutableSetOf<String>()
-        val emittedSubtitleKeys = mutableSetOf<String>()
-
-        parsedSubs.forEach { (name, url) ->
-            val displayName = normalizeSubtitleName(name)
-            val key = subtitleKey(name)
-            if (seenSubUrls.add(url) && emittedSubtitleKeys.add(key)) {
-                subtitleCallback(
-                    SubtitleFile(displayName, url).apply {
-                        this.headers = headers
-                    }
-                )
-            }
-        }
-
-        // Emit variant playlists directly so the player does not re-import the
-        // master playlist subtitle groups on top of our normalized subtitle list.
-        val variants = parseStreamVariants(currentUrl, m3u8Content)
-        if (variants.isNotEmpty()) {
-            variants.forEach { variant ->
-                callback(
-                    newExtractorLink(
-                        source = "Imu",
-                        name = "Imu",
-                        url = variant.url,
-                        type = ExtractorLinkType.M3U8
-                    ) {
-                        this.referer = "$base/"
-                        this.quality = variant.quality
-                        this.headers = headers
-                    }
-                )
-            }
-        } else {
-            callback(
-                newExtractorLink(
-                    source = "Imu",
-                    name = "Imu",
-                    url = currentUrl,
-                    type = ExtractorLinkType.M3U8
-                ) {
-                    this.referer = "$base/"
-                    this.quality = Qualities.Unknown.value
-                    this.headers = headers
-                }
-            )
-        }
+        )
 
         return true
     }
