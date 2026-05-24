@@ -233,19 +233,25 @@ object Xebec {
             val sx = keyData.optJSONObject("sx") ?: continue
             val t = sx.opt("t") ?: continue
 
-            val linkList = when (t) {
+            val linkPairs = mutableListOf<Pair<String, String>>()
+            when (t) {
                 is JSONArray -> {
-                    (0 until t.length()).mapNotNull { t.optString(it) }
+                    for (i in 0 until t.length()) {
+                        t.optString(i)?.takeIf { it.isNotBlank() }?.let { linkPairs.add(it to "") }
+                    }
                 }
                 is JSONObject -> {
-                    t.keys().asSequence().mapNotNull { t.optString(it) }.toList()
+                    for (k in t.keys()) {
+                        t.optString(k)?.takeIf { it.isNotBlank() }?.let { linkPairs.add(it to k) }
+                    }
                 }
                 else -> {
-                    listOf(t.toString())
+                    val raw = t.toString()
+                    if (raw.isNotBlank()) linkPairs.add(raw to "")
                 }
             }
 
-            for (rawLink in linkList) {
+            for ((rawLink, subKey) in linkPairs) {
                 if (rawLink.isBlank()) continue
                 val decodedLink = atob(rot13(rawLink))
                 if (decodedLink.isBlank()) continue
@@ -255,6 +261,16 @@ object Xebec {
                     "en" -> "TR Altyazı"
                     "atom" -> "Turbo (Atom)"
                     else -> key.uppercase()
+                }
+
+                var finalName = "Xebec ($label)"
+                if (subKey.isNotBlank() && (key.equals("advid", true) || key.equals("advidprox", true))) {
+                    val subLabel = when (subKey.lowercase()) {
+                        "tr" -> "Dublaj"
+                        "en" -> "Altyazı"
+                        else -> subKey.uppercase()
+                    }
+                    finalName = "Xebec [$subLabel]"
                 }
 
                 var finalUrl = decodedLink
@@ -279,7 +295,7 @@ object Xebec {
                     callback(
                         newExtractorLink(
                             source = "Xebec",
-                            name = "Xebec ($label)",
+                            name = finalName,
                             url = finalUrl,
                             type = ExtractorLinkType.M3U8
                         ) {

@@ -248,11 +248,11 @@ class IzlelanProvider : MainAPI() {
         val smokerSuccess = Smoker.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
         if (smokerSuccess) return@coroutineScope true
 
-        // 5. Smoker bulamazsa DiziFilm kaynağına geç — hem film hem dizi
-        val dizifilmSuccess = DiziFilm.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        // 5. Smoker bulamazsa Loki kaynağına geç — hem film hem dizi
+        val dizifilmSuccess = Loki.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
         if (dizifilmSuccess) return@coroutineScope true
 
-        // 6. DiziFilm bulamazsa Xebec (FullHDFilmizlesene) kaynağına geç — sadece film
+        // 6. Loki bulamazsa Xebec (FullHDFilmizlesene) kaynağına geç — sadece film
         val xebecSuccess = Xebec.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
         if (xebecSuccess) return@coroutineScope true
 

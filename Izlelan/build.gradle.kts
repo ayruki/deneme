@@ -3,7 +3,7 @@ dependencies {
     implementation("androidx.recyclerview:recyclerview:1.3.2")
 }
 
-version = 100014
+version = 100015
 
 cloudstream {
     description = "Izlelan TMDB-powered Cloudstream extension with support for various video sources."
