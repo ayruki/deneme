@@ -194,30 +194,38 @@ class IzlelanProvider : MainAPI() {
         
         val imdbId = details.external_ids?.imdb_id
 
-        // Prepend flag/metadata to description
-        val countryMetaList = details.production_countries?.mapNotNull { country ->
-            getCountryFlagAndName(country.iso_3166_1)
-        }?.map { "${it.first} ${it.second}" }.orEmpty()
-        val countryString = if (countryMetaList.isNotEmpty()) countryMetaList.joinToString(", ") else null
-        val yearString = year?.toString()
-        val genresString = if (genres.isNotEmpty()) genres.joinToString(", ") else null
-        val metaLines = listOfNotNull(countryString, yearString, genresString)
-        val metaHeader = if (metaLines.isNotEmpty()) {
-            metaLines.joinToString(" | ") + "\n\n"
-        } else {
-            ""
-        }
-        val finalPlot = metaHeader + details.overview.orEmpty()
+        val finalPlot = details.overview.orEmpty()
 
-        // Localized TV Show Release Status Badge
-        val statusTag = when (details.status) {
-            "Returning Series" -> "🟢 Devam Ediyor"
-            "Ended" -> "🔴 Final Yaptı"
-            "Canceled" -> "⚠️ İptal Edildi"
-            "In Production", "Planned" -> "🟡 Yapım Aşamasında"
-            else -> null
+        val finalTags = mutableListOf<String>()
+
+        // 1. Dizi Durum Etiketi (Status Badge - TV Series only)
+        if (type != "movie") {
+            val statusTag = when (details.status) {
+                "Returning Series" -> "🟢 Devam Ediyor"
+                "Ended" -> "🔴 Final"
+                "Canceled" -> "⚠️ İptal Edildi"
+                "In Production", "Planned" -> "🟡 Yapım Aşamasında"
+                else -> null
+            }
+            if (statusTag != null) {
+                finalTags.add(statusTag)
+            }
         }
-        val finalTags = if (statusTag != null) listOf(statusTag) + genres else genres
+
+        // 2. Ülke Bayrağı ve İsmi Etiketi (Country Tag)
+        val primaryCountry = details.production_countries?.firstOrNull()
+        val countryMeta = getCountryFlagAndName(primaryCountry?.iso_3166_1)
+        if (countryMeta != null) {
+            finalTags.add("${countryMeta.first} ${countryMeta.second}")
+        }
+
+        // 3. Yapım Yılı Etiketi (Year Tag)
+        if (year != null) {
+            finalTags.add(year.toString())
+        }
+
+        // 4. Tür Etiketleri (Genres)
+        finalTags.addAll(genres)
 
         if (type == "movie") {
             return newMovieLoadResponse(
