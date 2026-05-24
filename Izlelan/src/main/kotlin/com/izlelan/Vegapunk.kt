@@ -82,7 +82,7 @@ object Vegapunk {
         if (queryTitle.isBlank()) return false
 
         // 2. Search Vegapunk
-        val encodedTitle = URLEncoder.encode(queryTitle, "UTF-8")
+        val encodedTitle = URLEncoder.encode(queryTitle, "UTF-8").replace("+", "%20")
         val searchUrl = "$mainUrl/public/api/search/$encodedTitle/$apiKey"
         val searchResp = runCatching { app.get(searchUrl, headers = headers).text }.getOrNull() ?: return false
         val searchJson = runCatching { JSONObject(searchResp) }.getOrNull() ?: return false
