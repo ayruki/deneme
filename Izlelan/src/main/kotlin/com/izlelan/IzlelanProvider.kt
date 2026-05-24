@@ -238,12 +238,6 @@ class IzlelanProvider : MainAPI() {
             if (statusTag != null) {
                 finalTags.add(statusTag)
             }
-            details.number_of_seasons?.let {
-                finalTags.add("$it Sezon")
-            }
-            details.number_of_episodes?.let {
-                finalTags.add("$it Bölüm")
-            }
         }
 
         // 2. Ülke Bayrağı ve İsmi Etiketi (Country Tag)
@@ -253,12 +247,7 @@ class IzlelanProvider : MainAPI() {
             finalTags.add("${countryMeta.first} ${countryMeta.second}")
         }
 
-        // 3. Yapım Yılı Etiketi (Year Tag)
-        if (year != null) {
-            finalTags.add(year.toString())
-        }
-
-        // 4. Tür Etiketleri (Genres)
+        // 3. Tür Etiketleri (Genres)
         finalTags.addAll(genres)
 
         if (type == "movie") {
