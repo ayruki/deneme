@@ -69,7 +69,19 @@ class IzlelanProvider : MainAPI() {
     }
 
     private fun Media.toSearchResponse(): SearchResponse? {
-        val searchTitle = title ?: name ?: original_title ?: original_name ?: return null
+        val genreIds = genre_ids.orEmpty()
+        if (genreIds.contains(10764) || genreIds.contains(10767) || genreIds.contains(10766)) {
+            return null
+        }
+
+        val localTitle = title ?: name
+        val originalTitle = original_title ?: original_name
+        val searchTitle = if (!localTitle.isNullOrBlank() && !originalTitle.isNullOrBlank() && !localTitle.equals(originalTitle, ignoreCase = true)) {
+            "$localTitle ($originalTitle)"
+        } else {
+            localTitle ?: originalTitle ?: return null
+        }
+
         val mediaTypeString = media_type ?: if (first_air_date != null || name != null || original_name != null) "tv" else "movie"
         val tvType = if (mediaTypeString == "tv") TvType.TvSeries else TvType.Movie
 
@@ -81,6 +93,37 @@ class IzlelanProvider : MainAPI() {
             this.posterUrl = if (poster_path != null) "https://image.tmdb.org/t/p/w500$poster_path" else null
             this.score = vote_average?.let { Score.from10(it.toFloat()) }
         }
+    }
+
+    private fun getCountryFlagAndName(isoCode: String?): Pair<String, String>? {
+        val code = isoCode?.trim()?.uppercase() ?: return null
+        if (code.length != 2) return null
+        
+        // Dynamic flag emoji generation
+        val firstChar = Character.codePointAt(code, 0) - 0x41 + 0x1F1E6
+        val secondChar = Character.codePointAt(code, 1) - 0x41 + 0x1F1E6
+        val flagEmoji = String(Character.toChars(firstChar)) + String(Character.toChars(secondChar))
+        
+        val turkishName = when (code) {
+            "US" -> "ABD"
+            "TR" -> "Türkiye"
+            "KR" -> "Güney Kore"
+            "GB" -> "İngiltere"
+            "JP" -> "Japonya"
+            "FR" -> "Fransa"
+            "DE" -> "Almanya"
+            "IT" -> "İtalya"
+            "ES" -> "İspanya"
+            "CA" -> "Kanada"
+            "AU" -> "Avustralya"
+            "IN" -> "Hindistan"
+            "CN" -> "Çin"
+            "RU" -> "Rusya"
+            "BR" -> "Brezilya"
+            "MX" -> "Meksika"
+            else -> code
+        }
+        return Pair(flagEmoji, turkishName)
     }
 
     override suspend fun load(url: String): LoadResponse? {
@@ -113,7 +156,14 @@ class IzlelanProvider : MainAPI() {
 
         if (details == null) return null
 
-        val title = details.title ?: details.name ?: details.original_title ?: details.original_name ?: return null
+        val localTitle = details.title ?: details.name
+        val originalTitle = details.original_title ?: details.original_name
+        val title = if (!localTitle.isNullOrBlank() && !originalTitle.isNullOrBlank() && !localTitle.equals(originalTitle, ignoreCase = true)) {
+            "$localTitle ($originalTitle)"
+        } else {
+            localTitle ?: originalTitle ?: return null
+        }
+
         val poster = if (details.poster_path != null) "https://image.tmdb.org/t/p/w500${details.poster_path}" else null
         val backdrop = if (details.backdrop_path != null) "https://image.tmdb.org/t/p/original${details.backdrop_path}" else null
         val rating = details.vote_average?.let { Score.from10(it.toFloat()) }
@@ -131,14 +181,43 @@ class IzlelanProvider : MainAPI() {
 
         val recommendations = details.recommendations?.results?.mapNotNull { it.toSearchResponse() }.orEmpty()
         
-        // Multi-lingual fallback trailer selection logic: TR -> EN -> Any
-        val allVideos = videos?.results.orEmpty()
+        // Smart YouTube Trailer Priority
+        val allVideos = videos?.results.orEmpty().filter { it.site?.equals("YouTube", ignoreCase = true) == true }
         val trailerVideo = allVideos.firstOrNull { it.type == "Trailer" && it.iso_639_1 == "tr" }
             ?: allVideos.firstOrNull { it.type == "Trailer" && it.iso_639_1 == "en" }
+            ?: allVideos.firstOrNull { it.type == "Teaser" && it.iso_639_1 == "tr" }
+            ?: allVideos.firstOrNull { it.type == "Teaser" && it.iso_639_1 == "en" }
             ?: allVideos.firstOrNull { it.type == "Trailer" }
+            ?: allVideos.firstOrNull { it.type == "Teaser" }
+            ?: allVideos.firstOrNull()
         val trailer = trailerVideo?.key?.let { "https://www.youtube.com/watch?v=$it" }
         
         val imdbId = details.external_ids?.imdb_id
+
+        // Prepend flag/metadata to description
+        val countryMetaList = details.production_countries?.mapNotNull { country ->
+            getCountryFlagAndName(country.iso_3166_1)
+        }?.map { "${it.first} ${it.second}" }.orEmpty()
+        val countryString = if (countryMetaList.isNotEmpty()) countryMetaList.joinToString(", ") else null
+        val yearString = year?.toString()
+        val genresString = if (genres.isNotEmpty()) genres.joinToString(", ") else null
+        val metaLines = listOfNotNull(countryString, yearString, genresString)
+        val metaHeader = if (metaLines.isNotEmpty()) {
+            metaLines.joinToString(" | ") + "\n\n"
+        } else {
+            ""
+        }
+        val finalPlot = metaHeader + details.overview.orEmpty()
+
+        // Localized TV Show Release Status Badge
+        val statusTag = when (details.status) {
+            "Returning Series" -> "🟢 Devam Ediyor"
+            "Ended" -> "🔴 Final Yaptı"
+            "Canceled" -> "⚠️ İptal Edildi"
+            "In Production", "Planned" -> "🟡 Yapım Aşamasında"
+            else -> null
+        }
+        val finalTags = if (statusTag != null) listOf(statusTag) + genres else genres
 
         if (type == "movie") {
             return newMovieLoadResponse(
@@ -150,9 +229,9 @@ class IzlelanProvider : MainAPI() {
                 this.posterUrl = poster
                 this.backgroundPosterUrl = backdrop
                 this.year = year
-                this.plot = details.overview
+                this.plot = finalPlot
                 this.score = rating
-                this.tags = genres
+                this.tags = finalTags
                 this.actors = actors
                 this.recommendations = recommendations
                 if (trailer != null) {
@@ -164,32 +243,57 @@ class IzlelanProvider : MainAPI() {
             }
         } else {
             val episodes = coroutineScope {
-                details.seasons?.map { season ->
-                    async {
-                        val seasonNumber = season.season_number ?: return@async null
-                        val seasonUrl = "$mainUrl/tv/$id/season/$seasonNumber?api_key=$apiKey&language=$langCode"
-                        val seasonDetails = runCatching { app.get(seasonUrl).parsedSafe<MediaDetailEpisodes>() }.getOrNull()
+                val allRawEpisodes = details.seasons
+                    ?.filter { (it.season_number ?: 0) > 0 } // C. Specials (Season 0) Exclusion
+                    ?.map { season ->
+                        async {
+                            val seasonNumber = season.season_number ?: return@async null
+                            val seasonUrl = "$mainUrl/tv/$id/season/$seasonNumber?api_key=$apiKey&language=$langCode"
+                            val seasonDetails = runCatching { app.get(seasonUrl).parsedSafe<MediaDetailEpisodes>() }.getOrNull()
+                            seasonDetails?.episodes.orEmpty()
+                        }
+                    }?.awaitAll()?.filterNotNull()?.flatten().orEmpty()
 
-                        seasonDetails?.episodes?.map { episode ->
-                            newEpisode(
-                                LinkData(
-                                    id = id,
-                                    imdbId = imdbId,
-                                    type = type,
-                                    season = seasonNumber,
-                                    episode = episode.episode_number
-                                ).toJson()
-                            ) {
-                                this.name = episode.name
-                                this.season = seasonNumber
-                                this.episode = episode.episode_number
-                                this.posterUrl = episode.still_path?.let { "https://image.tmdb.org/t/p/w500$it" }
-                                this.description = episode.overview
-                                this.score = episode.vote_average?.let { Score.from10(it.toFloat()) }
-                            }
+                val sortedRawEpisodes = allRawEpisodes.sortedWith(
+                    compareBy<Episode> { it.season_number ?: 0 }.thenBy { it.episode_number ?: 0 }
+                )
+
+                val currentDate = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+                var unreleasedAdded = 0
+                val filteredRawEpisodes = sortedRawEpisodes.filter { ep ->
+                    val airDate = ep.air_date.orEmpty()
+                    val isReleased = airDate.isEmpty() || airDate <= currentDate
+                    if (isReleased) {
+                        true
+                    } else {
+                        if (unreleasedAdded < 1) {
+                            unreleasedAdded++
+                            true
+                        } else {
+                            false
                         }
                     }
-                }?.awaitAll()?.filterNotNull()?.flatten() ?: emptyList()
+                }
+
+                val showBackdrop = details.backdrop_path ?: details.poster_path
+                filteredRawEpisodes.map { episode ->
+                    newEpisode(
+                        LinkData(
+                            id = id,
+                            imdbId = imdbId,
+                            type = type,
+                            season = episode.season_number ?: 1,
+                            episode = episode.episode_number ?: 1
+                        ).toJson()
+                    ) {
+                        this.name = episode.name
+                        this.season = episode.season_number ?: 1
+                        this.episode = episode.episode_number ?: 1
+                        this.posterUrl = (episode.still_path ?: showBackdrop)?.let { "https://image.tmdb.org/t/p/w500$it" }
+                        this.description = episode.overview
+                        this.score = episode.vote_average?.let { Score.from10(it.toFloat()) }
+                    }
+                }
             }
 
             return newTvSeriesLoadResponse(
@@ -201,9 +305,9 @@ class IzlelanProvider : MainAPI() {
                 this.posterUrl = poster
                 this.backgroundPosterUrl = backdrop
                 this.year = year
-                this.plot = details.overview
+                this.plot = finalPlot
                 this.score = rating
-                this.tags = genres
+                this.tags = finalTags
                 this.actors = actors
                 this.recommendations = recommendations
                 if (trailer != null) {
@@ -314,7 +418,8 @@ class IzlelanProvider : MainAPI() {
         val vote_average: Double? = null,
         val overview: String? = null,
         val first_air_date: String? = null,
-        val release_date: String? = null
+        val release_date: String? = null,
+        val genre_ids: List<Int>? = null
     )
 
     data class MediaDetail(
@@ -336,10 +441,12 @@ class IzlelanProvider : MainAPI() {
         val external_ids: ExternalIds? = null,
         val credits: Credits? = null,
         val videos: VideoResults? = null,
-        val recommendations: Results? = null
+        val recommendations: Results? = null,
+        val production_countries: List<ProductionCountry>? = null
     )
 
     data class Genre(val name: String? = null)
+    data class ProductionCountry(val iso_3166_1: String? = null, val name: String? = null)
     data class Season(
         val season_number: Int? = null,
         val episode_count: Int? = null,
@@ -354,7 +461,7 @@ class IzlelanProvider : MainAPI() {
         val character: String? = null
     )
     data class VideoResults(val results: List<Video>? = null)
-    data class Video(val key: String? = null, val type: String? = null, val iso_639_1: String? = null)
+    data class Video(val key: String? = null, val type: String? = null, val iso_639_1: String? = null, val site: String? = null)
 
     data class MediaDetailEpisodes(
         val episodes: List<Episode>? = null
