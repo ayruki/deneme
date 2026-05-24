@@ -142,19 +142,23 @@ object Sabo {
 
         // TV Series: parse seasons/episodes
         val episodes = mutableListOf<EpEntry>()
-        val seasonRegex = Regex("Season\\s*(\\d+)", RegexOption.IGNORE_CASE)
-        val episodeRegex = Regex("Episode\\s*(\\d+)", RegexOption.IGNORE_CASE)
+        val seasonRegex = Regex("(?:Season|Sezon)\\s*(\\d+)|(\\d+)\\.?\\s*(?:Season|Sezon)", RegexOption.IGNORE_CASE)
+        val episodeRegex = Regex("(?:Episode|Bölüm|Bolum)\\s*(\\d+)|(\\d+)\\.?\\s*(?:Episode|Bölüm|Bolum)", RegexOption.IGNORE_CASE)
 
         for (i in 0 until fileArray.length()) {
             val seasonObj = fileArray.optJSONObject(i) ?: continue
-            val sNum = seasonRegex.find(seasonObj.optString("title"))
-                ?.groupValues?.getOrNull(1)?.toIntOrNull() ?: continue
+            val sTitle = seasonObj.optString("title")
+            val sMatch = seasonRegex.find(sTitle)
+            val sNum = (sMatch?.groupValues?.getOrNull(1)?.ifBlank { null } 
+                ?: sMatch?.groupValues?.getOrNull(2))?.toIntOrNull() ?: continue
             val epArray = seasonObj.optJSONArray("folder") ?: continue
 
             for (j in 0 until epArray.length()) {
                 val epObj = epArray.optJSONObject(j) ?: continue
-                val eNum = episodeRegex.find(epObj.optString("title"))
-                    ?.groupValues?.getOrNull(1)?.toIntOrNull() ?: continue
+                val eTitle = epObj.optString("title")
+                val eMatch = episodeRegex.find(eTitle)
+                val eNum = (eMatch?.groupValues?.getOrNull(1)?.ifBlank { null }
+                    ?: eMatch?.groupValues?.getOrNull(2))?.toIntOrNull() ?: continue
                 val stream = epObj.optString("file").ifBlank { null }?.replace("\\/", "/") ?: continue
                 val subs = parseSubtitleArray(epObj.optString("subtitle"))
                 episodes.add(EpEntry(sNum, eNum, stream, subs))
