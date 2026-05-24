@@ -3,14 +3,14 @@ dependencies {
     implementation("androidx.recyclerview:recyclerview:1.3.2")
 }
 
-version = 100023
+version = 100024
 
 cloudstream {
     description = "Izlelan TMDB-powered Cloudstream extension with support for various video sources."
     authors = listOf("Antigravity")
     status = 1
     tvTypes = listOf("Movie", "TvSeries", "Anime", "Cartoon")
-    requiresResources = true
+    requiresResources = false
     language = "tr"
     iconUrl = "https://raw.githubusercontent.com/Kraptor123/Cs-Karma/master/icon.png"
 }

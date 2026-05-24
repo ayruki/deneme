@@ -276,11 +276,15 @@ class IzlelanProvider : MainAPI() {
         val enelSuccess = Enel.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
         if (enelSuccess) return@coroutineScope true
 
-        // 8. Enel bulamazsa Vegapunk kaynağına geç — film, dizi ve anime destekler
+        // 8. Enel bulamazsa Fujitora (Animecix) kaynağına geç — anime ağırlıklı dizi ve film
+        val fujitoraSuccess = Fujitora.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        if (fujitoraSuccess) return@coroutineScope true
+
+        // 9. Fujitora bulamazsa Vegapunk kaynağına geç — film, dizi ve anime destekler
         val vegapunkSuccess = Vegapunk.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
         if (vegapunkSuccess) return@coroutineScope true
 
-        // 9. Vegapunk bulamazsa Sabo (CinemaCity) kaynağına geç — yerli/yabancı film ve dizi
+        // 10. Vegapunk bulamazsa Sabo (CinemaCity) kaynağına geç — yerli/yabancı film ve dizi
         Sabo.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
     }
 
