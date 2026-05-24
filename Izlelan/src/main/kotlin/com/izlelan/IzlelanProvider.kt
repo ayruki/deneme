@@ -10,6 +10,8 @@ import org.json.JSONObject
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import com.izlelan.sources.*
+import com.izlelan.api.*
 
 object BaseUrls {
     private var urls: JSONObject? = null
@@ -231,6 +233,19 @@ class IzlelanProvider : MainAPI() {
                 subtitleCallback(sub)
             }
         }
+
+        // TheIntroDB V3 Entegrasyonu (Arka planda çalışır, maks 2 saniye bekler)
+        val introDbJob = async {
+            runCatching {
+                kotlinx.coroutines.withTimeoutOrNull(2000L) {
+                    val dataUri = TheIntroDB.fetchChapters(id, imdbId, type, res.season, res.episode)
+                    if (dataUri != null) {
+                        dedupSubCallback(SubtitleFile("İntro Bölümleri", dataUri))
+                    }
+                }
+            }
+        }
+
 
         // 1. Önce Imu (Vidmody) kaynaklarını dene — hem film hem dizi destekler
         val imuSuccess = Imu.invoke(id, type, res.season, res.episode, dedupSubCallback, callback)

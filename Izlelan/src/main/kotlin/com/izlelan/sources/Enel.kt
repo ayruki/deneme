@@ -1,4 +1,7 @@
-package com.izlelan
+package com.izlelan.sources
+
+import com.izlelan.IzlelanProvider
+import com.izlelan.BaseUrls
 
 import android.util.Base64
 import com.lagradost.cloudstream3.*

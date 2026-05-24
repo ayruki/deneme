@@ -1,4 +1,7 @@
-package com.izlelan
+package com.izlelan.sources
+
+import com.izlelan.IzlelanProvider
+import com.izlelan.BaseUrls
 
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
