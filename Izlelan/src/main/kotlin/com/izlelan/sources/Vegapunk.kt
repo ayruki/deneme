@@ -1,13 +1,11 @@
 package com.izlelan.sources
 
-import com.izlelan.IzlelanProvider
 import com.izlelan.BaseUrls
 
-import android.util.Base64
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
+import org.jsoup.Jsoup
 import org.json.JSONObject
-import org.json.JSONArray
 import java.net.URLEncoder
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -16,6 +14,8 @@ object Vegapunk {
     private const val tmdbApiKey = "a2f888b27315e62e471b2d587048f32e"
     private val mainUrl = BaseUrls.get("vegapunk", "https://ydfvfdizipanel.ru")
     private const val apiKey = "9iQNC5HQwPlaFuJDkhncJ5XTJ8feGXOJatAA"
+    private const val apiUserAgent = "EasyPlex (Android 13; SM-A546E; samsung; tr)"
+    private const val mediaUserAgent = "Mozilla/5.0 (Linux; Android 13; SM-A546E) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Mobile Safari/537.36"
 
     private const val signature = "308202c3308201aba0030201020204075cec01300d06092a864886f70d01010b050030123110300e0603550403130753696e65776978301e1" +
             "70d3231303932313233333334395a170d3436303931353233333334395a30123110300e0603550403130753696e6577697830820122300d06092a864" +
@@ -30,11 +30,121 @@ object Vegapunk {
             "915fc5f607cf51bc7a8635f98bb4c65a8f24b7b5a82c7b06868f565cb0d6ac4775c4aac777536ddd1a565f990fd8cbe539185fa7aab610b7855a687a" +
             "00f4e55536d72873444552c50fd10727dbf298a9be6ed6ae62148dd1de365f3729915dd31975e28a472d752ac14db3db548405cc31e1e"
 
-    private val headers = mapOf(
+    private val apiHeaders = mapOf(
         "signature" to signature,
         "hash256" to "f4d4bc98a3fc4600e7f2c2bab7533f1f03d8a70ff03c256bb11dc57050536bd0",
-        "User-Agent" to "EasyPlex (Android 13; SM-A546E; samsung; tr)"
+        "User-Agent" to apiUserAgent
     )
+
+    private val mediaHeaders = mapOf(
+        "User-Agent" to mediaUserAgent,
+        "Accept" to "*/*"
+    )
+
+    private val directMediafireRegex = Regex("""^https?://download\d+\.mediafire\.com/""", RegexOption.IGNORE_CASE)
+    private val directVideoRegex = Regex("""\.(?:mp4|mkv|webm|mov|m4v)(?:[?#].*)?$""", RegexOption.IGNORE_CASE)
+    private val directM3u8Regex = Regex("""\.m3u8(?:[?#].*)?$""", RegexOption.IGNORE_CASE)
+    private val mediafireDownloadRegex = Regex("""https?://download\d+\.mediafire\.com/[^"'<>\\\s]+""", RegexOption.IGNORE_CASE)
+
+    private fun isMediaFireLink(url: String): Boolean {
+        return directMediafireRegex.containsMatchIn(url) ||
+            url.contains("mediafire.com/file/", ignoreCase = true)
+    }
+
+    private fun isDirectMediaLink(url: String): Boolean {
+        return url.contains("snwaxdop", ignoreCase = true) ||
+            directMediafireRegex.containsMatchIn(url) ||
+            directVideoRegex.containsMatchIn(url) ||
+            directM3u8Regex.containsMatchIn(url)
+    }
+
+    private fun directReferer(url: String): String? {
+        return if (url.contains("mediafire.com", ignoreCase = true)) {
+            null
+        } else {
+            "$mainUrl/"
+        }
+    }
+
+    private fun directHeaders(url: String): Map<String, String> {
+        return if (url.contains("mediafire.com", ignoreCase = true)) {
+            emptyMap()
+        } else {
+            mediaHeaders
+        }
+    }
+
+    private fun directLinkType(url: String): ExtractorLinkType {
+        return if (directM3u8Regex.containsMatchIn(url)) {
+            ExtractorLinkType.M3U8
+        } else {
+            ExtractorLinkType.VIDEO
+        }
+    }
+
+    private suspend fun emitDirectLink(videoLink: String, callback: (ExtractorLink) -> Unit) {
+        callback(
+            newExtractorLink(
+                source = "Vegapunk",
+                name = "Vegapunk",
+                url = videoLink,
+                type = directLinkType(videoLink)
+            ) {
+                this.quality = Qualities.Unknown.value
+                this.headers = directHeaders(videoLink)
+                directReferer(videoLink)?.let { this.referer = it }
+            }
+        )
+    }
+
+    private fun asVegapunkLink(link: ExtractorLink): ExtractorLink {
+        return ExtractorLink(
+            "Vegapunk",
+            "Vegapunk",
+            link.url,
+            link.referer,
+            link.quality,
+            link.headers,
+            link.extractorData,
+            link.type,
+            link.audioTracks
+        )
+    }
+
+    private suspend fun resolveMediaFireLink(url: String): String? {
+        if (directMediafireRegex.containsMatchIn(url)) return url
+
+        val page = runCatching { app.get(url, headers = mediaHeaders).text }.getOrNull() ?: return null
+        val firstHref = extractMediaFireHref(page) ?: return null
+        if (directMediafireRegex.containsMatchIn(firstHref)) return firstHref
+
+        if (!firstHref.contains("mediafire.com/file/", ignoreCase = true)) return null
+        val nextPage = runCatching {
+            app.get(firstHref, headers = mediaHeaders + ("Referer" to url)).text
+        }.getOrNull() ?: return null
+
+        val secondHref = extractMediaFireHref(nextPage) ?: return null
+        return secondHref.takeIf { directMediafireRegex.containsMatchIn(it) }
+    }
+
+    private fun extractMediaFireHref(page: String): String? {
+        val downloadButtonHref = Jsoup.parse(page)
+            .selectFirst("a#downloadButton, a.input.popsok")
+            ?.attr("href")
+            ?.let { normalizeMediaFireHref(it) }
+
+        return downloadButtonHref?.takeIf { directMediafireRegex.containsMatchIn(it) }
+            ?: mediafireDownloadRegex.find(page)?.value
+            ?: downloadButtonHref
+    }
+
+    private fun normalizeMediaFireHref(href: String): String? {
+        return when {
+            href.startsWith("//") -> "https:$href"
+            href.startsWith("http", ignoreCase = true) -> href
+            else -> null
+        }
+    }
 
     private data class SearchResult(
         val title: String,
@@ -70,7 +180,7 @@ object Vegapunk {
         // 2. Search Vegapunk
         val encodedTitle = URLEncoder.encode(queryTitle, "UTF-8").replace("+", "%20")
         val searchUrl = "$mainUrl/public/api/search/$encodedTitle/$apiKey"
-        val searchResp = runCatching { app.get(searchUrl, headers = headers).text }.getOrNull() ?: return false
+        val searchResp = runCatching { app.get(searchUrl, headers = apiHeaders).text }.getOrNull() ?: return false
         val searchJson = runCatching { JSONObject(searchResp) }.getOrNull() ?: return false
         val searchResultsArray = searchJson.optJSONArray("search") ?: return false
 
@@ -104,7 +214,7 @@ object Vegapunk {
                         "serie" -> "$mainUrl/public/api/series/show/${candidate.id}/$apiKey"
                         else -> "$mainUrl/public/api/animes/show/${candidate.id}/$apiKey"
                     }
-                    val resp = runCatching { app.get(detailUrl, headers = headers).text }.getOrNull()
+                    val resp = runCatching { app.get(detailUrl, headers = apiHeaders).text }.getOrNull()
                     if (!resp.isNullOrBlank()) {
                         val json = runCatching { JSONObject(resp) }.getOrNull()
                         if (json != null) Pair(candidate, json) else null
@@ -187,30 +297,17 @@ object Vegapunk {
 
         if (videoLink.isNullOrBlank()) return false
 
-        // Simplify resolving: Always use native loadExtractor for Mediafire links to prevent hotlink blocks/User-Agent conflicts in ExoPlayer
-        if (videoLink.contains("snwaxdop")) {
-            callback(
-                newExtractorLink(
-                    source = "Vegapunk",
-                    name = "Vegapunk",
-                    url = videoLink,
-                    type = ExtractorLinkType.VIDEO
-                ) {
-                    this.referer = "$mainUrl/"
-                    this.quality = Qualities.Unknown.value
-                    this.headers = headers
-                }
-            )
+        if (isMediaFireLink(videoLink)) {
+            val resolvedLink = resolveMediaFireLink(videoLink) ?: return false
+            emitDirectLink(resolvedLink, callback)
+            return true
+        } else if (isDirectMediaLink(videoLink)) {
+            emitDirectLink(videoLink, callback)
             return true
         } else {
             return runCatching {
                 loadExtractor(videoLink, "$mainUrl/", subtitleCallback) { link ->
-                    callback(
-                        link.copy(
-                            source = "Vegapunk",
-                            name = "Vegapunk"
-                        )
-                    )
+                    callback(asVegapunkLink(link))
                 }
             }.getOrDefault(false)
         }
