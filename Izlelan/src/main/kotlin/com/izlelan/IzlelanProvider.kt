@@ -255,31 +255,31 @@ class IzlelanProvider : MainAPI() {
         val shanksSuccess = Shanks.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
         if (shanksSuccess) return@coroutineScope true
 
-        // 3. Shanks bulamazsa Crocodile (Dizilla) kaynagina gec -- sadece dizi
-        val crocodileSuccess = Crocodile.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
-        if (crocodileSuccess) return@coroutineScope true
-
-        // 4. Crocodile bulamazsa Smoker (Dizipal) kaynağına geç — sadece dizi
-        val smokerSuccess = Smoker.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
-        if (smokerSuccess) return@coroutineScope true
-
-        // 5. Smoker bulamazsa Loki kaynağına geç — hem film hem dizi
+        // 3. Shanks bulamazsa Loki kaynağına geç — hem film hem dizi
         val dizifilmSuccess = Loki.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
         if (dizifilmSuccess) return@coroutineScope true
 
-        // 6. Loki bulamazsa Xebec (FullHDFilmizlesene) kaynağına geç — sadece film
-        val xebecSuccess = Xebec.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
-        if (xebecSuccess) return@coroutineScope true
-
-        // 7. Xebec bulamazsa Enel (SelcukFlix) kaynağına geç — sadece film
-        val enelSuccess = Enel.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
-        if (enelSuccess) return@coroutineScope true
-
-        // 8. Enel bulamazsa Fujitora (Animecix) kaynağına geç — anime ağırlıklı dizi ve film
+        // 4. Loki bulamazsa Fujitora (Animecix) kaynağına geç — anime ağırlıklı dizi ve film
         val fujitoraSuccess = Fujitora.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
         if (fujitoraSuccess) return@coroutineScope true
 
-        // 9. Fujitora bulamazsa Vegapunk kaynağına geç — film, dizi ve anime destekler
+        // 5. Fujitora bulamazsa Crocodile (Dizilla) kaynagina gec -- sadece dizi
+        val crocodileSuccess = Crocodile.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        if (crocodileSuccess) return@coroutineScope true
+
+        // 6. Crocodile bulamazsa Smoker (Dizipal) kaynağına geç — sadece dizi
+        val smokerSuccess = Smoker.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        if (smokerSuccess) return@coroutineScope true
+
+        // 7. Smoker bulamazsa Xebec (FullHDFilmizlesene) kaynağına geç — sadece film
+        val xebecSuccess = Xebec.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        if (xebecSuccess) return@coroutineScope true
+
+        // 8. Xebec bulamazsa Enel (SelcukFlix) kaynağına geç — sadece film
+        val enelSuccess = Enel.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        if (enelSuccess) return@coroutineScope true
+
+        // 9. Enel bulamazsa Vegapunk kaynağına geç — film, dizi ve anime destekler
         val vegapunkSuccess = Vegapunk.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
         if (vegapunkSuccess) return@coroutineScope true
 
