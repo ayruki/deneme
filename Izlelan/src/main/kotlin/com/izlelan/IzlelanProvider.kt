@@ -247,21 +247,47 @@ class IzlelanProvider : MainAPI() {
             }
         }
 
-        // Tüm kaynakları aynı anda (paralel) çalıştırarak linkleri topla.
-        // Bu sayede bir kaynak arızalı link verse bile diğer kaynakların linkleri listeye eklenmiş olur
-        // ve Cloudstream "Hiç bağlantı bulunamadı" hatası vermek yerine çalışan linki bulana kadar dener.
-        async { Imu.invoke(id, type, res.season, res.episode, dedupSubCallback, callback) }
-        async { Shanks.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }
-        async { Crocodile.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }
-        async { Smoker.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }
-        async { Loki.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }
-        async { Xebec.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }
-        async { Enel.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }
-        async { Fujitora.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }
-        async { Vegapunk.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }
-        async { Sabo.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }
+        // 1. Önce Imu (Vidmody) kaynaklarını dene — hem film hem dizi destekler
+        val imuSuccess = Imu.invoke(id, type, res.season, res.episode, dedupSubCallback, callback)
+        if (imuSuccess) return@coroutineScope true
 
-        return@coroutineScope true
+        // 2. Imu bulamazsa Shanks (Filmekseni) kaynağına geç — sadece film
+        val shanksSuccess = Shanks.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        if (shanksSuccess) return@coroutineScope true
+
+        // 3. Shanks bulamazsa Crocodile (Dizilla) kaynagina gec -- sadece dizi
+        val crocodileSuccess = Crocodile.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        if (crocodileSuccess) return@coroutineScope true
+
+        // 4. Crocodile bulamazsa Smoker (Dizipal) kaynağına geç — sadece dizi
+        val smokerSuccess = Smoker.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        if (smokerSuccess) return@coroutineScope true
+
+        // 5. Smoker bulamazsa Loki kaynağına geç — hem film hem dizi
+        val dizifilmSuccess = Loki.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        if (dizifilmSuccess) return@coroutineScope true
+
+        // 6. Loki bulamazsa Xebec (FullHDFilmizlesene) kaynağına geç — sadece film
+        val xebecSuccess = Xebec.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        if (xebecSuccess) return@coroutineScope true
+
+        // 7. Xebec bulamazsa Enel (SelcukFlix) kaynağına geç — sadece film
+        val enelSuccess = Enel.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        if (enelSuccess) return@coroutineScope true
+
+        // 8. Enel bulamazsa Fujitora (Animecix) kaynağına geç — anime ağırlıklı dizi ve film
+        val fujitoraSuccess = Fujitora.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        if (fujitoraSuccess) return@coroutineScope true
+
+        // 9. Fujitora bulamazsa Vegapunk kaynağına geç — film, dizi ve anime destekler
+        val vegapunkSuccess = Vegapunk.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        if (vegapunkSuccess) return@coroutineScope true
+
+        // 10. Vegapunk bulamazsa Sabo (CinemaCity) kaynağına geç — yerli/yabancı film ve dizi
+        val saboSuccess = Sabo.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        if (saboSuccess) return@coroutineScope true
+
+        return@coroutineScope false
     }
 
     data class LinkData(
