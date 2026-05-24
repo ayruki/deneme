@@ -409,6 +409,10 @@ class IzlelanProvider : MainAPI() {
         val rayleighSuccess = runCatching { Rayleigh.invoke(id, type, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
         if (rayleighSuccess) return@coroutineScope true
 
+        // 12. Rayleigh bulamazsa Chopper (Cineby/Videasy) kaynağına geç — yabancı film ve dizi
+        val chopperSuccess = runCatching { Chopper.invoke(id, type, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
+        if (chopperSuccess) return@coroutineScope true
+
         return@coroutineScope false
     }
 
