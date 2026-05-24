@@ -69,6 +69,9 @@ class IzlelanProvider : MainAPI() {
     }
 
     private fun Media.toSearchResponse(): SearchResponse? {
+        if (media_type == "person") {
+            return null
+        }
         val genreIds = genre_ids.orEmpty()
         if (genreIds.contains(10764) || genreIds.contains(10767) || genreIds.contains(10766)) {
             return null
@@ -235,6 +238,12 @@ class IzlelanProvider : MainAPI() {
             if (statusTag != null) {
                 finalTags.add(statusTag)
             }
+            details.number_of_seasons?.let {
+                finalTags.add("$it Sezon")
+            }
+            details.number_of_episodes?.let {
+                finalTags.add("$it Bölüm")
+            }
         }
 
         // 2. Ülke Bayrağı ve İsmi Etiketi (Country Tag)
@@ -385,43 +394,43 @@ class IzlelanProvider : MainAPI() {
         }
 
         // 1. Önce Imu (Vidmody) kaynaklarını dene — hem film hem dizi destekler
-        val imuSuccess = Imu.invoke(id, type, res.season, res.episode, dedupSubCallback, callback)
+        val imuSuccess = runCatching { Imu.invoke(id, type, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
         if (imuSuccess) return@coroutineScope true
 
         // 2. Imu bulamazsa Shanks (Filmekseni) kaynağına geç — sadece film
-        val shanksSuccess = Shanks.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        val shanksSuccess = runCatching { Shanks.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
         if (shanksSuccess) return@coroutineScope true
 
         // 3. Shanks bulamazsa Loki kaynağına geç — hem film hem dizi
-        val dizifilmSuccess = Loki.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        val dizifilmSuccess = runCatching { Loki.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
         if (dizifilmSuccess) return@coroutineScope true
 
         // 4. Loki bulamazsa Fujitora (Animecix) kaynağına geç — anime ağırlıklı dizi ve film
-        val fujitoraSuccess = Fujitora.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        val fujitoraSuccess = runCatching { Fujitora.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
         if (fujitoraSuccess) return@coroutineScope true
 
         // 5. Fujitora bulamazsa Crocodile (Dizilla) kaynagina gec -- sadece dizi
-        val crocodileSuccess = Crocodile.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        val crocodileSuccess = runCatching { Crocodile.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
         if (crocodileSuccess) return@coroutineScope true
 
         // 6. Crocodile bulamazsa Smoker (Dizipal) kaynağına geç — sadece dizi
-        val smokerSuccess = Smoker.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        val smokerSuccess = runCatching { Smoker.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
         if (smokerSuccess) return@coroutineScope true
 
         // 7. Smoker bulamazsa Xebec (FullHDFilmizlesene) kaynağına geç — sadece film
-        val xebecSuccess = Xebec.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        val xebecSuccess = runCatching { Xebec.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
         if (xebecSuccess) return@coroutineScope true
 
         // 8. Xebec bulamazsa Enel (SelcukFlix) kaynağına geç — sadece film
-        val enelSuccess = Enel.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        val enelSuccess = runCatching { Enel.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
         if (enelSuccess) return@coroutineScope true
 
         // 9. Enel bulamazsa Vegapunk kaynağına geç — film, dizi ve anime destekler
-        val vegapunkSuccess = Vegapunk.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        val vegapunkSuccess = runCatching { Vegapunk.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
         if (vegapunkSuccess) return@coroutineScope true
 
         // 10. Vegapunk bulamazsa Sabo (CinemaCity) kaynağına geç — yerli/yabancı film ve dizi
-        val saboSuccess = Sabo.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback)
+        val saboSuccess = runCatching { Sabo.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
         if (saboSuccess) return@coroutineScope true
 
         return@coroutineScope false
@@ -471,6 +480,8 @@ class IzlelanProvider : MainAPI() {
         val seasons: List<Season>? = null,
         val runtime: Int? = null,
         val status: String? = null,
+        val number_of_seasons: Int? = null,
+        val number_of_episodes: Int? = null,
         val external_ids: ExternalIds? = null,
         val credits: Credits? = null,
         val videos: VideoResults? = null,
