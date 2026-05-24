@@ -38,7 +38,22 @@ object Imu {
             "güney setho dili",
             "güney sotho dili",
             "south sotho" -> "Türkçe (Forced)"
+            "english",
+            "ingilizce",
+            "i̇ngilizce" -> "İngilizce"
+            "turkish",
+            "turkce",
+            "türkçe" -> "Türkçe"
             else -> normalized
+        }
+    }
+
+    private fun subtitleKey(name: String): String {
+        return when (normalizeSubtitleName(name).lowercase()) {
+            "türkçe (forced)" -> "tr-forced"
+            "türkçe" -> "tr"
+            "i̇ngilizce", "ingilizce" -> "en"
+            else -> normalizeSubtitleName(name).lowercase()
         }
     }
 
@@ -170,11 +185,14 @@ object Imu {
         }
 
         val seenSubUrls = mutableSetOf<String>()
+        val emittedSubtitleKeys = mutableSetOf<String>()
 
         parsedSubs.forEach { (name, url) ->
-            if (seenSubUrls.add(url)) {
+            val displayName = normalizeSubtitleName(name)
+            val key = subtitleKey(name)
+            if (seenSubUrls.add(url) && emittedSubtitleKeys.add(key)) {
                 subtitleCallback(
-                    SubtitleFile(normalizeSubtitleName(name), url).apply {
+                    SubtitleFile(displayName, url).apply {
                         this.headers = headers
                     }
                 )
