@@ -125,12 +125,7 @@ object Fujitora {
                             url = u.url,
                             type = if (isM3u) ExtractorLinkType.M3U8 else ExtractorLinkType.VIDEO
                         ) {
-                            this.referer = v.url
                             this.quality = getQualityFromName(u.label)
-                            this.headers = mapOf(
-                                "User-Agent" to ANIMECIX_HEADERS["User-Agent"]!!,
-                                "Referer" to v.url
-                            )
                         }
                     )
                 }
