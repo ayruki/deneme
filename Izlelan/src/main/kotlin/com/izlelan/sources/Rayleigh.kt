@@ -27,7 +27,8 @@ object Rayleigh {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val apiUrl = if (type == "movie") {
+        val isMovie = type.equals("movie", ignoreCase = true)
+        val apiUrl = if (isMovie) {
             "$VIXSRC_BASE/api/movie/$id"
         } else {
             val s = season ?: 1
@@ -47,7 +48,7 @@ object Rayleigh {
 
         val apiData = runCatching { org.json.JSONObject(apiResponse) }.getOrNull() ?: return false
         val embedPath = apiData.optString("src").ifBlank { null } ?: return false
-        val embedUrl = "$VIXSRC_BASE$embedPath"
+        val embedUrl = if (embedPath.startsWith("http")) embedPath else "$VIXSRC_BASE$embedPath"
 
         val embedHeaders = baseHeaders.toMutableMap().apply {
             put("Referer", VIXSRC_BASE)
@@ -57,15 +58,15 @@ object Rayleigh {
             app.get(embedUrl, headers = embedHeaders).text
         }.getOrNull() ?: return false
 
-        var videoId = Regex("window\\.video\\s*=\\s*\\{[^}]*id:\\s*'([^']+)'").find(html)?.groupValues?.getOrNull(1)
+        var videoId = Regex("window\\.video\\s*=\\s*\\{[^}]*id:\\s*['\"]([^'\"]+)['\"]").find(html)?.groupValues?.getOrNull(1)
         if (videoId.isNullOrEmpty()) {
             videoId = Regex("/embed/([^?/?]+)").find(embedPath)?.groupValues?.getOrNull(1)
         }
         if (videoId.isNullOrEmpty()) return false
 
-        val token = Regex("'token':\\s*'([^']+)'").find(html)?.groupValues?.getOrNull(1) ?: return false
-        val expires = Regex("'expires':\\s*'([^']+)'").find(html)?.groupValues?.getOrNull(1) ?: return false
-        val canPlayFHD = html.contains("window.canPlayFHD = true")
+        val token = Regex("['\"]token['\"]:\\s*['\"]([^'\"]+)['\"]").find(html)?.groupValues?.getOrNull(1) ?: return false
+        val expires = Regex("['\"]expires['\"]:\\s*['\"]([^'\"]+)['\"]").find(html)?.groupValues?.getOrNull(1) ?: return false
+        val canPlayFHD = html.contains("canPlayFHD\\s*=\\s*true".toRegex())
 
         var lang = "en"
         if (embedPath.contains("lang=")) {
@@ -82,12 +83,11 @@ object Rayleigh {
 
         val queryStr = embedPath.substringAfter('?', "")
         if (queryStr.isNotEmpty()) {
-            val queryParams = queryStr.split('&')
-            for (p in queryParams) {
-                val idx = p.indexOf('=')
-                if (idx != -1) {
-                    val k = p.substring(0, idx)
-                    val v = p.substring(idx + 1)
+            queryStr.split('&').forEach { p ->
+                val parts = p.split('=', limit = 2)
+                if (parts.size == 2) {
+                    val k = parts[0]
+                    val v = parts[1]
                     if (k != "token" && k != "expires" && k != "lang" && k != "skin" && k != "canPlayFHD") {
                         params += "&$k=$v"
                     }
