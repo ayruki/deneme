@@ -8,11 +8,13 @@ import org.json.JSONArray
 import java.net.URLEncoder
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import com.lagradost.nicehttp.Requests
 
 object Vegapunk {
     private const val tmdbApiKey = "a2f888b27315e62e471b2d587048f32e"
     private val mainUrl = BaseUrls.get("vegapunk", "https://ydfvfdizipanel.ru")
     private const val apiKey = "9iQNC5HQwPlaFuJDkhncJ5XTJ8feGXOJatAA"
+    private val cleanClient = Requests()
 
     private const val signature = "308202c3308201aba0030201020204075cec01300d06092a864886f70d01010b050030123110300e0603550403130753696e65776978301e1" +
             "70d3231303932313233333334395a170d3436303931353233333334395a30123110300e0603550403130753696e6577697830820122300d06092a864" +
@@ -85,7 +87,7 @@ object Vegapunk {
         // 2. Search Vegapunk
         val encodedTitle = URLEncoder.encode(queryTitle, "UTF-8").replace("+", "%20")
         val searchUrl = "$mainUrl/public/api/search/$encodedTitle/$apiKey"
-        val searchResp = runCatching { app.get(searchUrl, headers = headers).text }.getOrNull() ?: return false
+        val searchResp = runCatching { cleanClient.get(searchUrl, headers = headers).text }.getOrNull() ?: return false
         val searchJson = runCatching { JSONObject(searchResp) }.getOrNull() ?: return false
         val searchResultsArray = searchJson.optJSONArray("search") ?: return false
 
@@ -119,7 +121,7 @@ object Vegapunk {
                         "serie" -> "$mainUrl/public/api/series/show/${candidate.id}/$apiKey"
                         else -> "$mainUrl/public/api/animes/show/${candidate.id}/$apiKey"
                     }
-                    val resp = runCatching { app.get(detailUrl, headers = headers).text }.getOrNull()
+                    val resp = runCatching { cleanClient.get(detailUrl, headers = headers).text }.getOrNull()
                     if (!resp.isNullOrBlank()) {
                         val json = runCatching { JSONObject(resp) }.getOrNull()
                         if (json != null) Pair(candidate, json) else null
