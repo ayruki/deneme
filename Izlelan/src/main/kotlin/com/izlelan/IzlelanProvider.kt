@@ -422,6 +422,10 @@ class IzlelanProvider : MainAPI() {
         val saboSuccess = runCatching { Sabo.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
         if (saboSuccess) return@coroutineScope true
 
+        // 11. Sabo bulamazsa Rayleigh (vixsrc.to) kaynağına geç — yabancı film ve dizi
+        val rayleighSuccess = runCatching { Rayleigh.invoke(id, type, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
+        if (rayleighSuccess) return@coroutineScope true
+
         return@coroutineScope false
     }
 
