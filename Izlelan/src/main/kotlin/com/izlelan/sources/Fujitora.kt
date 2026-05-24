@@ -116,20 +116,30 @@ object Fujitora {
                 )).parsedSafe<TauVideoResponse>() }.getOrNull()
                 
                 apiRes?.urls?.forEach { u ->
-                    val encodedUrl = java.net.URLEncoder.encode(u.url, "UTF-8")
-                    val encodedRef = java.net.URLEncoder.encode(v.url, "UTF-8")
-                    val proxyUrl = "https://animecix.ayruki.workers.dev/m?url=$encodedUrl&ref=$encodedRef"
+                    val finalRes = runCatching {
+                        app.get(u.url, headers = mapOf("User-Agent" to ANIMECIX_HEADERS["User-Agent"]!!, "Referer" to v.url))
+                    }.getOrNull()
 
-                    callback(
-                        newExtractorLink(
-                            source = "Fujitora - Tau",
-                            name = "Fujitora - Tau ${u.label}",
-                            url = proxyUrl,
-                            type = ExtractorLinkType.M3U8
-                        ) {
-                            this.quality = getQualityFromName(u.label)
-                        }
-                    )
+                    if (finalRes != null && finalRes.code in 200..299) {
+                        val text = finalRes.text
+                        val isM3u = text.contains("#EXTM3U")
+                        
+                        callback(
+                            newExtractorLink(
+                                source = "Fujitora - Tau",
+                                name = "Fujitora - Tau ${u.label}",
+                                url = finalRes.url,
+                                type = if (isM3u) ExtractorLinkType.M3U8 else ExtractorLinkType.VIDEO
+                            ) {
+                                this.referer = v.url
+                                this.quality = getQualityFromName(u.label)
+                                this.headers = mapOf(
+                                    "User-Agent" to ANIMECIX_HEADERS["User-Agent"]!!,
+                                    "Referer" to v.url
+                                )
+                            }
+                        )
+                    }
                 }
             } else if (v.url.contains("sibnet.ru")) {
                 val sRes = runCatching { app.get(v.url, headers = mapOf(
