@@ -133,18 +133,14 @@ object Loki {
         val hlsUrl = json.optString("securedLink").ifBlank { json.optString("videoSource") }
         if (hlsUrl.isNullOrBlank()) return false
 
-        callback(
-            newExtractorLink(
-                source = "Loki",
-                name = "Loki",
-                url = hlsUrl,
-                type = ExtractorLinkType.M3U8
-            ) {
-                this.referer = "https://vidlop.com/"
-                this.quality = Qualities.Unknown.value
-                this.headers = mapOf("Referer" to "https://vidlop.com/", "User-Agent" to userAgent)
-            }
-        )
+        M3u8Helper.generateM3u8(
+            source = "Loki",
+            streamUrl = hlsUrl,
+            referer = "https://vidlop.com/",
+            headers = mapOf("Referer" to "https://vidlop.com/", "User-Agent" to userAgent)
+        ).forEach {
+            callback(it)
+        }
         return true
     }
 

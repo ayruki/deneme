@@ -104,18 +104,14 @@ object Imu {
             return false
         }
 
-        callback(
-            newExtractorLink(
-                source = "Imu",
-                name = "Imu",
-                url = currentUrl,
-                type = ExtractorLinkType.M3U8
-            ) {
-                this.referer = "$base/"
-                this.quality = Qualities.Unknown.value
-                this.headers = headers
-            }
-        )
+        M3u8Helper.generateM3u8(
+            source = "Imu",
+            streamUrl = currentUrl,
+            referer = "$base/",
+            headers = headers
+        ).forEach {
+            callback(it)
+        }
 
         return true
     }

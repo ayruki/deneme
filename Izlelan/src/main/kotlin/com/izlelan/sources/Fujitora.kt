@@ -31,6 +31,54 @@ object Fujitora {
     data class TauVideoResponse(val urls: List<TauVideoUrl>?)
     data class TauVideoUrl(val label: String, val url: String)
 
+    data class EpisodeGroupResult(val id: String, val name: String?, val type: Int)
+    data class EpisodeGroupResponse(val results: List<EpisodeGroupResult>?)
+    data class EpisodeItem(val season_number: Int, val episode_number: Int)
+    data class GroupDetail(val name: String?, val order: Int?, val episodes: List<EpisodeItem>?)
+    data class GroupDetailResponse(val groups: List<GroupDetail>?)
+    data class SeasonEpisode(val season: Int, val episode: Int)
+
+    private suspend fun getEpisodeGroupMapping(tvId: Int): Map<Int, SeasonEpisode>? {
+        val groupsRes = runCatching { 
+            app.get("https://api.themoviedb.org/3/tv/$tvId/episode_groups?api_key=$tmdbApiKey")
+                .parsedSafe<EpisodeGroupResponse>()
+        }.getOrNull() ?: return null
+
+        val seasonsGroup = groupsRes.results?.find { it.type == 1 || (it.name?.contains("seasons", ignoreCase = true) == true) }
+            ?: return null
+
+        val groupId = seasonsGroup.id
+        val detailRes = runCatching {
+            app.get("https://api.themoviedb.org/3/tv/episode_group/$groupId?api_key=$tmdbApiKey")
+                .parsedSafe<GroupDetailResponse>()
+        }.getOrNull() ?: return null
+
+        val groups = detailRes.groups ?: return null
+        val mapping = mutableMapOf<Int, SeasonEpisode>()
+        var absoluteEp = 1
+        val seasonEpisodesCount = mutableMapOf<Int, Int>()
+
+        val sortedGroups = groups.sortedBy { it.order ?: 0 }
+        
+        sortedGroups.forEachIndexed { index, group ->
+            val name = group.name ?: ""
+            val seasonMatch = Regex("""Season\s+(\d+)""", RegexOption.IGNORE_CASE).find(name)
+            val seasonNum = seasonMatch?.groupValues?.get(1)?.toIntOrNull() ?: (if ((group.order ?: 0) > 0) group.order!! else (index + 1))
+
+            if (seasonNum == 0 || name.contains("special", ignoreCase = true)) return@forEachIndexed
+
+            val episodes = group.episodes ?: emptyList()
+            episodes.forEach { ep ->
+                if (ep.season_number == 0) return@forEach
+                val count = (seasonEpisodesCount[seasonNum] ?: 0) + 1
+                seasonEpisodesCount[seasonNum] = count
+                mapping[absoluteEp] = SeasonEpisode(seasonNum, count)
+                absoluteEp++
+            }
+        }
+        return mapping
+    }
+
     suspend fun invoke(
         id: Int,
         type: String, // "movie" or "tv"
@@ -99,6 +147,20 @@ object Fujitora {
 
         var filteredVideos = fetchVideos(targetSeason, targetEp)
 
+        // Fallback for seasonal mapping
+        if (isSeries && filteredVideos.isEmpty()) {
+            val mapping = getEpisodeGroupMapping(id)
+            if (mapping != null && mapping.containsKey(targetEp)) {
+                val mapped = mapping[targetEp]!!
+                val mappedVideos = fetchVideos(mapped.season, mapped.episode)
+                if (mappedVideos.isNotEmpty()) {
+                    filteredVideos = mappedVideos
+                    targetSeason = mapped.season
+                    // targetEp remains absolute
+                }
+            }
+        }
+
         // Final Fallback: Try Season 1 if targetSeason != 1 and not found
         if (isSeries && filteredVideos.isEmpty() && targetSeason != 1) {
             filteredVideos = fetchVideos(1, targetEp)
@@ -150,17 +212,6 @@ object Fujitora {
                         }
                     )
                 }
-            } else {
-                callback(
-                    newExtractorLink(
-                        source = "Fujitora - ${v.name}",
-                        name = "Fujitora - ${v.name}",
-                        url = v.url,
-                        type = ExtractorLinkType.VIDEO
-                    ) {
-                        this.quality = Qualities.Unknown.value
-                    }
-                )
             }
         }
 

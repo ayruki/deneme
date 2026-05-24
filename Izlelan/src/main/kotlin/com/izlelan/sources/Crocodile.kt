@@ -333,18 +333,14 @@ object Crocodile {
                         }
                     }
 
-                    callback(
-                        newExtractorLink(
-                            source = "Crocodile",
-                            name = "Crocodile",
-                            url = hls.url,
-                            type = ExtractorLinkType.M3U8
-                        ) {
-                            this.referer = source.url
-                            this.quality = Qualities.Unknown.value
-                            this.headers = subHeaders
-                        }
-                    )
+                    M3u8Helper.generateM3u8(
+                        source = "Crocodile",
+                        streamUrl = hls.url,
+                        referer = source.url,
+                        headers = subHeaders
+                    ).forEach {
+                        callback(it)
+                    }
                     found = true
                 }
                 // İlk başarılı Crocodile source bulununca dur, birden fazla gösterme
