@@ -77,7 +77,12 @@ class IzlelanProvider : MainAPI() {
         val localTitle = title ?: name
         val originalTitle = original_title ?: original_name
         val searchTitle = if (!localTitle.isNullOrBlank() && !originalTitle.isNullOrBlank() && !localTitle.equals(originalTitle, ignoreCase = true)) {
-            "$localTitle ($originalTitle)"
+            val isUnreadable = originalTitle.any { it.code > 127 && (it.code in 0x3000..0x9FFF || it.code in 0xAC00..0xD7AF) }
+            if (isUnreadable) {
+                localTitle
+            } else {
+                "$localTitle ($originalTitle)"
+            }
         } else {
             localTitle ?: originalTitle ?: return null
         }
@@ -157,11 +162,31 @@ class IzlelanProvider : MainAPI() {
         if (details == null) return null
 
         val localTitle = details.title ?: details.name
-        val originalTitle = details.original_title ?: details.original_name
-        val title = if (!localTitle.isNullOrBlank() && !originalTitle.isNullOrBlank() && !localTitle.equals(originalTitle, ignoreCase = true)) {
-            "$localTitle ($originalTitle)"
+        val rawOriginalTitle = details.original_title ?: details.original_name
+        val originalLanguage = details.original_language?.trim()?.lowercase()
+
+        // Find English title from alternative titles as a fallback for non-English original titles
+        val altList = details.alternative_titles?.results.orEmpty() + details.alternative_titles?.titles.orEmpty()
+        val englishAltTitle = altList.firstOrNull {
+            val iso = it.iso_3166_1?.uppercase()
+            iso == "US" || iso == "GB" || iso == "CA" || iso == "AU"
+        }?.let { it.title ?: it.name }
+
+        val readableOriginalTitle = if (originalLanguage == "en") {
+            rawOriginalTitle
         } else {
-            localTitle ?: originalTitle ?: return null
+            englishAltTitle ?: rawOriginalTitle
+        }
+
+        val title = if (!localTitle.isNullOrBlank() && !readableOriginalTitle.isNullOrBlank() && !localTitle.equals(readableOriginalTitle, ignoreCase = true)) {
+            val isUnreadable = readableOriginalTitle.any { it.code > 127 && (it.code in 0x3000..0x9FFF || it.code in 0xAC00..0xD7AF) }
+            if (isUnreadable) {
+                localTitle
+            } else {
+                "$localTitle ($readableOriginalTitle)"
+            }
+        } else {
+            localTitle ?: readableOriginalTitle ?: return null
         }
 
         val poster = if (details.poster_path != null) "https://image.tmdb.org/t/p/w500${details.poster_path}" else null
@@ -450,7 +475,20 @@ class IzlelanProvider : MainAPI() {
         val credits: Credits? = null,
         val videos: VideoResults? = null,
         val recommendations: Results? = null,
-        val production_countries: List<ProductionCountry>? = null
+        val production_countries: List<ProductionCountry>? = null,
+        val original_language: String? = null,
+        val alternative_titles: AlternativeTitles? = null
+    )
+ 
+    data class AlternativeTitles(
+        val results: List<AltTitle>? = null,
+        val titles: List<AltTitle>? = null
+    )
+ 
+    data class AltTitle(
+        val iso_3166_1: String? = null,
+        val title: String? = null,
+        val name: String? = null
     )
 
     data class Genre(val name: String? = null)
