@@ -12,6 +12,11 @@ import okhttp3.OkHttpClient
 object Imu {
     private const val tmdbApiKey = "a2f888b27315e62e471b2d587048f32e"
 
+    private data class StreamVariant(
+        val url: String,
+        val quality: Int
+    )
+
     private fun resolveUrl(base: String, relative: String): String {
         return if (relative.startsWith("http://") || relative.startsWith("https://")) {
             relative
@@ -22,6 +27,52 @@ object Imu {
             val baseDir = base.substring(0, base.lastIndexOf('/') + 1)
             baseDir + relative
         }
+    }
+
+    private fun normalizeSubtitleName(name: String): String {
+        val normalized = name.trim()
+        val lowered = normalized.lowercase()
+        return when (lowered) {
+            "sesotho",
+            "southern sotho",
+            "güney setho dili",
+            "güney sotho dili",
+            "south sotho" -> "Türkçe (Forced)"
+            else -> normalized
+        }
+    }
+
+    private fun parseStreamVariants(masterUrl: String, content: String): List<StreamVariant> {
+        val lines = content.lines()
+        val variants = mutableListOf<StreamVariant>()
+        var pendingQuality = Qualities.Unknown.value
+
+        lines.forEach { rawLine ->
+            val line = rawLine.trim()
+            when {
+                line.startsWith("#EXT-X-STREAM-INF", ignoreCase = true) -> {
+                    val resolution = Regex("""RESOLUTION=\d+x(\d+)""", RegexOption.IGNORE_CASE)
+                        .find(line)
+                        ?.groupValues
+                        ?.getOrNull(1)
+                    pendingQuality = resolution?.let { getQualityFromName("${it}p") } ?: Qualities.Unknown.value
+                }
+
+                line.isNotEmpty() && !line.startsWith("#") -> {
+                    if (pendingQuality != Qualities.Unknown.value || variants.isEmpty()) {
+                        variants.add(
+                            StreamVariant(
+                                url = resolveUrl(masterUrl, line),
+                                quality = pendingQuality
+                            )
+                        )
+                    }
+                    pendingQuality = Qualities.Unknown.value
+                }
+            }
+        }
+
+        return variants.distinctBy { it.url }
     }
 
     suspend fun invoke(
@@ -123,26 +174,45 @@ object Imu {
         parsedSubs.forEach { (name, url) ->
             if (seenSubUrls.add(url)) {
                 subtitleCallback(
-                    SubtitleFile(name, url).apply {
+                    SubtitleFile(normalizeSubtitleName(name), url).apply {
                         this.headers = headers
                     }
                 )
             }
         }
 
-        // Deliver the extractor link to the callback.
-        callback(
-            newExtractorLink(
-                source = "Imu",
-                name = "Imu",
-                url = currentUrl,
-                type = ExtractorLinkType.M3U8
-            ) {
-                this.referer = "$base/"
-                this.quality = Qualities.Unknown.value
-                this.headers = headers
+        // Emit variant playlists directly so the player does not re-import the
+        // master playlist subtitle groups on top of our normalized subtitle list.
+        val variants = parseStreamVariants(currentUrl, m3u8Content)
+        if (variants.isNotEmpty()) {
+            variants.forEach { variant ->
+                callback(
+                    newExtractorLink(
+                        source = "Imu",
+                        name = "Imu",
+                        url = variant.url,
+                        type = ExtractorLinkType.M3U8
+                    ) {
+                        this.referer = "$base/"
+                        this.quality = variant.quality
+                        this.headers = headers
+                    }
+                )
             }
-        )
+        } else {
+            callback(
+                newExtractorLink(
+                    source = "Imu",
+                    name = "Imu",
+                    url = currentUrl,
+                    type = ExtractorLinkType.M3U8
+                ) {
+                    this.referer = "$base/"
+                    this.quality = Qualities.Unknown.value
+                    this.headers = headers
+                }
+            )
+        }
 
         return true
     }
