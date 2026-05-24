@@ -8,13 +8,11 @@ import org.json.JSONArray
 import java.net.URLEncoder
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import com.lagradost.nicehttp.Requests
 
 object Vegapunk {
     private const val tmdbApiKey = "a2f888b27315e62e471b2d587048f32e"
     private val mainUrl = BaseUrls.get("vegapunk", "https://ydfvfdizipanel.ru")
     private const val apiKey = "9iQNC5HQwPlaFuJDkhncJ5XTJ8feGXOJatAA"
-    private val cleanClient = Requests()
 
     private const val signature = "308202c3308201aba0030201020204075cec01300d06092a864886f70d01010b050030123110300e0603550403130753696e65776978301e1" +
             "70d3231303932313233333334395a170d3436303931353233333334395a30123110300e0603550403130753696e6577697830820122300d06092a864" +
@@ -40,24 +38,6 @@ object Vegapunk {
         val type: String,
         val id: Int
     )
-
-    private suspend fun resolveMediafire(url: String): String {
-        if (!url.contains("mediafire.com")) return url
-        val res = runCatching {
-            app.get(
-                url,
-                headers = mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
-            )
-        }.getOrNull() ?: return url
-        if (res.code != 200) return url
-
-        val html = res.text
-        val match = Regex("""href="([^"]+)"[^>]*id="downloadButton"""").find(html)
-            ?: Regex("""id="downloadButton"[^>]*href="([^"]+)"""").find(html)
-            ?: Regex("""href="(https://download[^"]+mediafire\.com/[^"]+)"""").find(html)
-
-        return match?.groupValues?.getOrNull(1) ?: url
-    }
 
     suspend fun invoke(
         id: Int,
@@ -87,7 +67,7 @@ object Vegapunk {
         // 2. Search Vegapunk
         val encodedTitle = URLEncoder.encode(queryTitle, "UTF-8").replace("+", "%20")
         val searchUrl = "$mainUrl/public/api/search/$encodedTitle/$apiKey"
-        val searchResp = runCatching { cleanClient.get(searchUrl, headers = headers).text }.getOrNull() ?: return false
+        val searchResp = runCatching { app.get(searchUrl, headers = headers).text }.getOrNull() ?: return false
         val searchJson = runCatching { JSONObject(searchResp) }.getOrNull() ?: return false
         val searchResultsArray = searchJson.optJSONArray("search") ?: return false
 
@@ -121,7 +101,7 @@ object Vegapunk {
                         "serie" -> "$mainUrl/public/api/series/show/${candidate.id}/$apiKey"
                         else -> "$mainUrl/public/api/animes/show/${candidate.id}/$apiKey"
                     }
-                    val resp = runCatching { cleanClient.get(detailUrl, headers = headers).text }.getOrNull()
+                    val resp = runCatching { app.get(detailUrl, headers = headers).text }.getOrNull()
                     if (!resp.isNullOrBlank()) {
                         val json = runCatching { JSONObject(resp) }.getOrNull()
                         if (json != null) Pair(candidate, json) else null
@@ -204,36 +184,24 @@ object Vegapunk {
 
         if (videoLink.isNullOrBlank()) return false
 
-        val finalVideoUrl = resolveMediafire(videoLink)
-
-        if (finalVideoUrl.contains("mediafire.com/file/")) {
-            return runCatching {
-                loadExtractor(finalVideoUrl, "$mainUrl/", subtitleCallback, callback)
-            }.getOrDefault(false)
-        }
-
-        val directExtensions = listOf(".mp4", ".mkv", ".avi", ".ts")
-        val isDirect = directExtensions.any { finalVideoUrl.contains(it, ignoreCase = true) } || finalVideoUrl.contains(".m3u8")
-
-        if (isDirect) {
-            val isM3u8 = finalVideoUrl.contains(".m3u8")
-            val linkType = if (isM3u8) ExtractorLinkType.M3U8 else ExtractorLinkType.VIDEO
+        // Simplify resolving: Always use native loadExtractor for Mediafire links to prevent hotlink blocks/User-Agent conflicts in ExoPlayer
+        if (videoLink.contains("snwaxdop")) {
             callback(
                 newExtractorLink(
                     source = "Vegapunk",
                     name = "Vegapunk",
-                    url = finalVideoUrl,
-                    type = linkType
+                    url = videoLink,
+                    type = ExtractorLinkType.VIDEO
                 ) {
                     this.referer = "$mainUrl/"
                     this.quality = Qualities.Unknown.value
-                    this.headers = mapOf("User-Agent" to headers.getValue("User-Agent"))
+                    this.headers = headers
                 }
             )
             return true
         } else {
             return runCatching {
-                loadExtractor(finalVideoUrl, "$mainUrl/", subtitleCallback, callback)
+                loadExtractor(videoLink, "$mainUrl/", subtitleCallback, callback)
             }.getOrDefault(false)
         }
     }
