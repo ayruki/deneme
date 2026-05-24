@@ -125,6 +125,10 @@ object Fujitora {
                         ) {
                             this.referer = v.url
                             this.quality = getQualityFromName(u.label)
+                            this.headers = mapOf(
+                                "User-Agent" to ANIMECIX_HEADERS["User-Agent"]!!,
+                                "Referer" to v.url
+                            )
                         }
                     )
                 }
