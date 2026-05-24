@@ -116,19 +116,18 @@ object Fujitora {
                 )).parsedSafe<TauVideoResponse>() }.getOrNull()
                 
                 apiRes?.urls?.forEach { u ->
+                    val encodedUrl = java.net.URLEncoder.encode(u.url, "UTF-8")
+                    val encodedRef = java.net.URLEncoder.encode(v.url, "UTF-8")
+                    val proxyUrl = "https://animecix.ayruki.workers.dev/m?url=$encodedUrl&ref=$encodedRef"
+
                     callback(
                         newExtractorLink(
                             source = "Fujitora - Tau",
                             name = "Fujitora - Tau ${u.label}",
-                            url = u.url,
+                            url = proxyUrl,
                             type = ExtractorLinkType.M3U8
                         ) {
-                            this.referer = v.url
                             this.quality = getQualityFromName(u.label)
-                            this.headers = mapOf(
-                                "User-Agent" to ANIMECIX_HEADERS["User-Agent"]!!,
-                                "Referer" to v.url
-                            )
                         }
                     )
                 }
