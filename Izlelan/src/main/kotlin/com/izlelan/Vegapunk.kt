@@ -30,7 +30,7 @@ object Vegapunk {
     private val headers = mapOf(
         "signature" to signature,
         "hash256" to "f4d4bc98a3fc4600e7f2c2bab7533f1f03d8a70ff03c256bb11dc57050536bd0",
-        "user-agent" to "EasyPlex (Android 13; SM-A546E; samsung; tr)"
+        "User-Agent" to "EasyPlex (Android 13; SM-A546E; samsung; tr)"
     )
 
     private data class SearchResult(
