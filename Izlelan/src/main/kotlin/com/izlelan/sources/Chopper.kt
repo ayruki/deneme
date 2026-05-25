@@ -137,7 +137,7 @@ object Chopper {
                         ) {
                             this.referer = "https://cineby.sc/"
                             this.quality = qVal
-                            this.headers = headers
+                            this.headers = mapOf("Referer" to "https://cineby.sc/")
                         }
                     )
                     foundAny = true
