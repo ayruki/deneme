@@ -12,7 +12,7 @@ import java.net.URLEncoder
 
 object Enel {
     private const val tmdbApiKey = "a2f888b27315e62e471b2d587048f32e"
-    private val mainUrl = BaseUrls.get("enel", "https://selcukflix.net")
+    private val mainUrl = BaseUrls.get("enel", "https://selcukflix.co")
 
     private val headers = mapOf(
         "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
