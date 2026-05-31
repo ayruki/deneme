@@ -4,7 +4,7 @@ import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.LoadResponse.Companion.addImdbId
 import com.lagradost.cloudstream3.LoadResponse.Companion.addTrailer
 import com.lagradost.cloudstream3.utils.*
-import com.lagradost.cloudstream3.utils.AppUtils.parseJson
+import com.lagradost.cloudstream3.utils.AppUtils.mapper
 import com.lagradost.cloudstream3.utils.AppUtils.toJson
 import org.json.JSONObject
 import kotlinx.coroutines.async
@@ -126,7 +126,7 @@ class IzlelanProvider : MainAPI() {
     }
 
     override suspend fun load(url: String): LoadResponse? {
-        val data = parseJson<LinkData>(url)
+        val data = mapper.readValue(url, LinkData::class.java)
         val id = data.id ?: return null
         val type = data.type ?: "movie"
 
@@ -339,7 +339,7 @@ class IzlelanProvider : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean = coroutineScope {
-        val res = parseJson<LinkData>(data)
+        val res = mapper.readValue(data, LinkData::class.java)
         val id = res.id ?: return@coroutineScope false
         val type = res.type ?: "movie"
         val imdbId = res.imdbId
