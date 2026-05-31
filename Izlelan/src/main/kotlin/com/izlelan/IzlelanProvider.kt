@@ -350,12 +350,12 @@ class IzlelanProvider : MainAPI() {
         fun getSubCallbackFor(sourceName: String) = { sub: SubtitleFile ->
             val normalized = sub.url.substringBefore("?")
             if (seenSubUrls.add(normalized)) {
-                val newLabel = if (sub.name.contains(sourceName, ignoreCase = true)) {
-                    sub.name
+                val newLabel = if (sub.lang.contains(sourceName, ignoreCase = true)) {
+                    sub.lang
                 } else {
-                    "${sub.name} ($sourceName)"
+                    "${sub.lang} ($sourceName)"
                 }
-                subtitleCallback(SubtitleFile(newLabel, sub.url, sub.headers))
+                subtitleCallback(SubtitleFile(newLabel, sub.url).apply { headers = sub.headers })
             }
         }
 
@@ -375,6 +375,7 @@ class IzlelanProvider : MainAPI() {
         val collectedLinks = java.util.Collections.synchronizedList(mutableListOf<ExtractorLink>())
         val customCallback = { link: ExtractorLink ->
             collectedLinks.add(link)
+            Unit
         }
 
         val isMovie = type == "movie"
