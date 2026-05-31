@@ -37,20 +37,15 @@ object TurkceAltyazi {
     }
 
     private fun decodeContent(bytes: ByteArray): String {
-        // Try strict UTF-8 first
+        // Try UTF-8 first (no replacement characters)
         try {
-            val utf8Decoder = Charsets.UTF_8.newDecoder()
-            utf8Decoder.onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
-            utf8Decoder.onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
-            val decoded = utf8Decoder.decode(java.nio.ByteBuffer.wrap(bytes)).toString()
-            if (decoded.contains("-->")) {
+            val decoded = String(bytes, Charsets.UTF_8)
+            if (decoded.contains("-->") && !decoded.contains("\uFFFD")) {
                 return decoded
             }
-        } catch (e: Exception) {
-            // Not valid UTF-8
-        }
+        } catch (e: Exception) {}
 
-        // Try Windows-1254 (Turkish)
+        // Fallback to Windows-1254 (Turkish) which is the default for turkcealtyazi.org
         try {
             val decoded = String(bytes, charset("windows-1254"))
             if (decoded.contains("-->")) {
@@ -58,17 +53,9 @@ object TurkceAltyazi {
             }
         } catch (e: Exception) {}
 
-        // Try ISO-8859-9
+        // Fallback to ISO-8859-9
         try {
             val decoded = String(bytes, charset("ISO-8859-9"))
-            if (decoded.contains("-->")) {
-                return decoded
-            }
-        } catch (e: Exception) {}
-
-        // Try UTF-16
-        try {
-            val decoded = String(bytes, charset("UTF-16"))
             if (decoded.contains("-->")) {
                 return decoded
             }
@@ -190,14 +177,7 @@ object TurkceAltyazi {
 
                     if (isSrt && !isMac) {
                         val outStream = ByteArrayOutputStream()
-                        val buffer = ByteArray(4096)
-                        var len = zipInput.read(buffer)
-                        while (len != -1) {
-                            if (len > 0) {
-                                outStream.write(buffer, 0, len)
-                            }
-                            len = zipInput.read(buffer)
-                        }
+                        zipInput.copyTo(outStream)
                         srtFiles.add(name to outStream.toByteArray())
                     }
                     entry = zipInput.nextEntry
@@ -271,7 +251,7 @@ object TurkceAltyazi {
                     val decodedSub = decodeContent(subBytes)
                     val vttContent = srtToVtt(decodedSub)
                     val base64Vtt = Base64.encodeToString(vttContent.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
-                    val dataUri = "data:text/vtt;charset=utf-8;base64,$base64Vtt"
+                    val dataUri = "data:text/vtt;base64,$base64Vtt"
 
                     subtitleCallback(
                         newSubtitleFile(
