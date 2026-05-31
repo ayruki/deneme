@@ -4,7 +4,8 @@ import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.LoadResponse.Companion.addImdbId
 import com.lagradost.cloudstream3.LoadResponse.Companion.addTrailer
 import com.lagradost.cloudstream3.utils.*
-import com.lagradost.cloudstream3.utils.AppUtils.mapper
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.lagradost.cloudstream3.utils.AppUtils.toJson
 import org.json.JSONObject
 import kotlinx.coroutines.async
@@ -34,6 +35,7 @@ object BaseUrls {
 }
 
 class IzlelanProvider : MainAPI() {
+    private val mapper = ObjectMapper().registerKotlinModule()
     override var mainUrl = "https://api.themoviedb.org/3"
     override var name = "İzlelan"
     override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries, TvType.Anime, TvType.Cartoon)
