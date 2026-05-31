@@ -128,8 +128,8 @@ object Chopper {
                         else -> Qualities.Unknown.value
                     }
 
-                    val sName = server.split("-").joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
-                    val displayName = "Chopper - $sName"
+                    val qName = if (quality.isNotBlank()) " - ${quality.uppercase().trim()}" else ""
+                    val displayName = "Chopper$qName"
                     callback(
                         newExtractorLink(
                             source = displayName,
