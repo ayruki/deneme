@@ -151,7 +151,7 @@ object TurkceAltyazi {
                 )
 
                 if (zipRes.code != 200) continue
-                val zipBytes = zipRes.raw.body?.bytes() ?: continue
+                val zipBytes = zipRes.okhttpResponse.body?.bytes() ?: continue
 
                 // 4. Extract subtitle from Zip
                 val zipInput = ZipInputStream(ByteArrayInputStream(zipBytes))
