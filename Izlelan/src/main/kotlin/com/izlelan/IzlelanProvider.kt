@@ -410,7 +410,7 @@ class IzlelanProvider : MainAPI() {
         jobs.add(runSource { Rayleigh.invoke(id, type, res.season, res.episode, getSubCallbackFor("🇬🇧 Rayleigh"), customCallback) })
         jobs.add(runSource { Chopper.invoke(id, type, res.season, res.episode, getSubCallbackFor("🇬🇧 Chopper"), customCallback) })
         jobs.add(runSource { 
-            TurkceAltyazi.invoke(imdbId, res.season, res.episode, getSubCallbackFor("TurkceAltyazi"))
+            TurkceAltyazi.invoke(id, imdbId, res.season, res.episode, getSubCallbackFor("TurkceAltyazi"))
         })
 
         val results = jobs.awaitAll()
