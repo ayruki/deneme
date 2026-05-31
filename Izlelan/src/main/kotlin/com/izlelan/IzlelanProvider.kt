@@ -405,6 +405,7 @@ class IzlelanProvider : MainAPI() {
             jobs.add(runSource { Enel.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Enel"), customCallback) })
         }
         jobs.add(runSource { Vegapunk.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Vegapunk"), customCallback) })
+        jobs.add(runSource { Borsalino.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Borsalino"), customCallback) })
         jobs.add(runSource { Rayleigh.invoke(id, type, res.season, res.episode, getSubCallbackFor("🇬🇧 Rayleigh"), customCallback) })
         jobs.add(runSource { Chopper.invoke(id, type, res.season, res.episode, getSubCallbackFor("🇬🇧 Chopper"), customCallback) })
 
@@ -412,6 +413,7 @@ class IzlelanProvider : MainAPI() {
         
         // Sort collected links by preferred source order (Turkish first, then English)
         val preferredOrder = listOf(
+            "🇹🇷 Borsalino",
             "🇹🇷 Shanks", 
             "🇹🇷 Crocodile", 
             "🇹🇷 Smoker", 
