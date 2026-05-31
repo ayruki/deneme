@@ -297,8 +297,8 @@ object Xebec {
                 if (isHlsUrl(finalUrl)) {
                     callback(
                         newExtractorLink(
-                            source = "Xebec",
-                            name = finalName,
+                            source = "🇹🇷 Xebec",
+                            name = finalName.replace("Xebec", "🇹🇷 Xebec"),
                             url = finalUrl,
                             type = ExtractorLinkType.M3U8
                         ) {

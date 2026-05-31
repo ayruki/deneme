@@ -198,8 +198,8 @@ object Shanks {
         // ── Step 9: Deliver M3U8 stream ────────────────────────────────────────
         callback(
             newExtractorLink(
-                source = "Shanks",
-                name   = "Shanks",
+                source = "🇹🇷 Shanks",
+                name   = "🇹🇷 Shanks",
                 url    = m3u8Url,
                 type   = ExtractorLinkType.M3U8
             ) {

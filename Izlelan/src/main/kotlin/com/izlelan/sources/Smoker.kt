@@ -319,8 +319,8 @@ object Smoker {
 
                 callback(
                     newExtractorLink(
-                        source = "Smoker",
-                        name = "Smoker",
+                        source = "🇹🇷 Smoker",
+                        name = "🇹🇷 Smoker",
                         url = hls.url,
                         type = ExtractorLinkType.M3U8
                     ) {

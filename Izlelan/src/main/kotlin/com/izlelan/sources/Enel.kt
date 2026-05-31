@@ -189,15 +189,15 @@ object Enel {
             ?: vId?.let { loadSource2(baseUrl, iframeUrl, it) }
 
         if (!masterUrl.isNullOrBlank()) {
-            results.add(HlsData("Enel", masterUrl, subtitles))
+            results.add(HlsData("🇹🇷 Enel", masterUrl, subtitles))
         }
-
+ 
         // Extractor for Turkish Dubbing
         val dubId = Regex("""["']([^"']+)["'],\s*["']Türkçe["']""").find(text)?.groupValues?.getOrNull(1)
         if (!dubId.isNullOrBlank()) {
             val dubMasterUrl = loadSource2(baseUrl, iframeUrl, dubId)
             if (!dubMasterUrl.isNullOrBlank()) {
-                results.add(HlsData("Enel", dubMasterUrl, subtitles))
+                results.add(HlsData("🇹🇷 Enel", dubMasterUrl, subtitles))
             }
         }
 
@@ -292,7 +292,7 @@ object Enel {
 
                         callback(
                             newExtractorLink(
-                                source = "Enel",
+                                source = "🇹🇷 Enel",
                                 name = hls.label,
                                 url = hls.url,
                                 type = ExtractorLinkType.M3U8

@@ -374,24 +374,7 @@ class IzlelanProvider : MainAPI() {
 
         val collectedLinks = java.util.Collections.synchronizedList(mutableListOf<ExtractorLink>())
         val customCallback = { link: ExtractorLink ->
-            val sourceWithFlag = when {
-                link.source.contains("Shanks", ignoreCase = true) -> "🇹🇷 Shanks"
-                link.source.contains("Crocodile", ignoreCase = true) -> "🇹🇷 Crocodile"
-                link.source.contains("Smoker", ignoreCase = true) -> "🇹🇷 Smoker"
-                link.source.contains("Xebec", ignoreCase = true) -> "🇹🇷 Xebec"
-                link.source.contains("Enel", ignoreCase = true) -> "🇹🇷 Enel"
-                link.source.contains("Vegapunk", ignoreCase = true) -> "🇹🇷 Vegapunk"
-                link.source.contains("Fujitora", ignoreCase = true) -> "🇹🇷 Fujitora"
-                link.source.contains("Imu", ignoreCase = true) -> "🇹🇷 Imu"
-                link.source.contains("Rayleigh", ignoreCase = true) -> "🇬🇧 Rayleigh"
-                link.source.contains("Chopper", ignoreCase = true) -> "🇬🇧 Chopper"
-                else -> link.source
-            }
-            val updatedLink = link.copy(
-                source = sourceWithFlag,
-                name = link.name.replace(link.source, sourceWithFlag)
-            )
-            collectedLinks.add(updatedLink)
+            collectedLinks.add(link)
             Unit
         }
 
@@ -429,16 +412,16 @@ class IzlelanProvider : MainAPI() {
         
         // Sort collected links by preferred source order (Turkish first, then English)
         val preferredOrder = listOf(
-            "Shanks", 
-            "Crocodile", 
-            "Smoker", 
-            "Xebec", 
-            "Enel", 
-            "Vegapunk", 
-            "Fujitora", 
-            "Imu", 
-            "Rayleigh", 
-            "Chopper"
+            "🇹🇷 Shanks", 
+            "🇹🇷 Crocodile", 
+            "🇹🇷 Smoker", 
+            "🇹🇷 Xebec", 
+            "🇹🇷 Enel", 
+            "🇹🇷 Vegapunk", 
+            "🇹🇷 Fujitora", 
+            "🇹🇷 Imu", 
+            "🇬🇧 Rayleigh", 
+            "🇬🇧 Chopper"
         )
         val sortedLinks = collectedLinks.sortedWith(compareBy { link ->
             val index = preferredOrder.indexOfFirst { link.source.contains(it, ignoreCase = true) }

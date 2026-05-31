@@ -85,8 +85,8 @@ object Vegapunk {
     private suspend fun emitDirectLink(videoLink: String, callback: (ExtractorLink) -> Unit) {
         callback(
             newExtractorLink(
-                source = "Vegapunk",
-                name = "Vegapunk",
+                source = "🇹🇷 Vegapunk",
+                name = "🇹🇷 Vegapunk",
                 url = videoLink,
                 type = directLinkType(videoLink)
             ) {
@@ -96,11 +96,11 @@ object Vegapunk {
             }
         )
     }
-
+ 
     private fun asVegapunkLink(link: ExtractorLink): ExtractorLink {
         return ExtractorLink(
-            "Vegapunk",
-            "Vegapunk",
+            "🇹🇷 Vegapunk",
+            "🇹🇷 Vegapunk",
             link.url,
             link.referer,
             link.quality,

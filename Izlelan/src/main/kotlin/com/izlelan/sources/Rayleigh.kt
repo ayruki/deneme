@@ -107,8 +107,8 @@ object Rayleigh {
 
         callback(
             newExtractorLink(
-                source = "Rayleigh",
-                name = "Rayleigh",
+                source = "🇬🇧 Rayleigh",
+                name = "🇬🇧 Rayleigh",
                 url = playlistUrl,
                 type = ExtractorLinkType.M3U8
             ) {

@@ -131,10 +131,11 @@ object Chopper {
 
                     val qName = if (quality.isNotBlank()) " - ${quality.uppercase().trim()}" else ""
                     val displayName = "Chopper$qName"
+                    val displayNameWithFlag = "🇬🇧 $displayName"
                     callback(
                         newExtractorLink(
-                            source = displayName,
-                            name = displayName,
+                            source = displayNameWithFlag,
+                            name = displayNameWithFlag,
                             url = streamUrl,
                             type = ExtractorLinkType.M3U8
                         ) {

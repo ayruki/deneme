@@ -182,8 +182,8 @@ object Fujitora {
                     
                     callback(
                         newExtractorLink(
-                            source = "Fujitora - Tau",
-                            name = "Fujitora - Tau ${u.label}",
+                            source = "🇹🇷 Fujitora - Tau",
+                            name = "🇹🇷 Fujitora - Tau ${u.label}",
                             url = u.url,
                             type = if (isM3u) ExtractorLinkType.M3U8 else ExtractorLinkType.VIDEO
                         ) {
@@ -202,8 +202,8 @@ object Fujitora {
                     val direct = "https://video.sibnet.ru${m.groupValues[1]}"
                     callback(
                         newExtractorLink(
-                            source = "Fujitora - Sibnet",
-                            name = "Fujitora - Sibnet",
+                            source = "🇹🇷 Fujitora - Sibnet",
+                            name = "🇹🇷 Fujitora - Sibnet",
                             url = direct,
                             type = if (direct.contains(".m3u8")) ExtractorLinkType.M3U8 else ExtractorLinkType.VIDEO
                         ) {

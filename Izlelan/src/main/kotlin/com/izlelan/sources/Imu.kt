@@ -106,8 +106,8 @@ object Imu {
 
         callback(
             newExtractorLink(
-                source = "Imu",
-                name = "Imu",
+                source = "🇹🇷 Imu",
+                name = "🇹🇷 Imu",
                 url = currentUrl,
                 type = ExtractorLinkType.M3U8
             ) {
