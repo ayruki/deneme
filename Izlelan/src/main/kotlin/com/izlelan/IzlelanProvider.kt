@@ -374,7 +374,24 @@ class IzlelanProvider : MainAPI() {
 
         val collectedLinks = java.util.Collections.synchronizedList(mutableListOf<ExtractorLink>())
         val customCallback = { link: ExtractorLink ->
-            collectedLinks.add(link)
+            val sourceWithFlag = when {
+                link.source.contains("Shanks", ignoreCase = true) -> "🇹🇷 Shanks"
+                link.source.contains("Crocodile", ignoreCase = true) -> "🇹🇷 Crocodile"
+                link.source.contains("Smoker", ignoreCase = true) -> "🇹🇷 Smoker"
+                link.source.contains("Xebec", ignoreCase = true) -> "🇹🇷 Xebec"
+                link.source.contains("Enel", ignoreCase = true) -> "🇹🇷 Enel"
+                link.source.contains("Vegapunk", ignoreCase = true) -> "🇹🇷 Vegapunk"
+                link.source.contains("Fujitora", ignoreCase = true) -> "🇹🇷 Fujitora"
+                link.source.contains("Imu", ignoreCase = true) -> "🇹🇷 Imu"
+                link.source.contains("Rayleigh", ignoreCase = true) -> "🇬🇧 Rayleigh"
+                link.source.contains("Chopper", ignoreCase = true) -> "🇬🇧 Chopper"
+                else -> link.source
+            }
+            val updatedLink = link.copy(
+                source = sourceWithFlag,
+                name = link.name.replace(link.source, sourceWithFlag)
+            )
+            collectedLinks.add(updatedLink)
             Unit
         }
 
@@ -391,29 +408,38 @@ class IzlelanProvider : MainAPI() {
         }
 
         // Add all compatible sources to run in parallel
-        jobs.add(runSource { Imu.invoke(id, type, res.season, res.episode, getSubCallbackFor("Imu"), customCallback) })
+        jobs.add(runSource { Imu.invoke(id, type, res.season, res.episode, getSubCallbackFor("🇹🇷 Imu"), customCallback) })
         if (isMovie) {
-            jobs.add(runSource { Shanks.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("Shanks"), customCallback) })
+            jobs.add(runSource { Shanks.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Shanks"), customCallback) })
         }
-        jobs.add(runSource { Loki.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("Loki"), customCallback) })
-        jobs.add(runSource { Fujitora.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("Fujitora"), customCallback) })
+        jobs.add(runSource { Fujitora.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Fujitora"), customCallback) })
         if (!isMovie) {
-            jobs.add(runSource { Crocodile.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("Crocodile"), customCallback) })
-            jobs.add(runSource { Smoker.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("Smoker"), customCallback) })
+            jobs.add(runSource { Crocodile.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Crocodile"), customCallback) })
+            jobs.add(runSource { Smoker.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Smoker"), customCallback) })
         }
         if (isMovie) {
-            jobs.add(runSource { Xebec.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("Xebec"), customCallback) })
-            jobs.add(runSource { Enel.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("Enel"), customCallback) })
+            jobs.add(runSource { Xebec.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Xebec"), customCallback) })
+            jobs.add(runSource { Enel.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Enel"), customCallback) })
         }
-        jobs.add(runSource { Vegapunk.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("Vegapunk"), customCallback) })
-        jobs.add(runSource { Rayleigh.invoke(id, type, res.season, res.episode, getSubCallbackFor("Rayleigh"), customCallback) })
-        jobs.add(runSource { Chopper.invoke(id, type, res.season, res.episode, getSubCallbackFor("Chopper"), customCallback) })
-        jobs.add(runSource { Shamrock.invoke(id, type, res.season, res.episode, getSubCallbackFor("Shamrock"), customCallback) })
+        jobs.add(runSource { Vegapunk.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Vegapunk"), customCallback) })
+        jobs.add(runSource { Rayleigh.invoke(id, type, res.season, res.episode, getSubCallbackFor("🇬🇧 Rayleigh"), customCallback) })
+        jobs.add(runSource { Chopper.invoke(id, type, res.season, res.episode, getSubCallbackFor("🇬🇧 Chopper"), customCallback) })
 
         val results = jobs.awaitAll()
         
-        // Sort collected links by preferred source order
-        val preferredOrder = listOf("Imu", "Shanks", "Loki", "Fujitora", "Crocodile", "Smoker", "Xebec", "Enel", "Vegapunk", "Rayleigh", "Chopper", "Shamrock")
+        // Sort collected links by preferred source order (Turkish first, then English)
+        val preferredOrder = listOf(
+            "Shanks", 
+            "Crocodile", 
+            "Smoker", 
+            "Xebec", 
+            "Enel", 
+            "Vegapunk", 
+            "Fujitora", 
+            "Imu", 
+            "Rayleigh", 
+            "Chopper"
+        )
         val sortedLinks = collectedLinks.sortedWith(compareBy { link ->
             val index = preferredOrder.indexOfFirst { link.source.contains(it, ignoreCase = true) }
             if (index != -1) index else preferredOrder.size
