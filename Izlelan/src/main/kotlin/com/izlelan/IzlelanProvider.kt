@@ -365,63 +365,40 @@ class IzlelanProvider : MainAPI() {
             }
         }
 
-        // 1. Önce Imu (Vidmody) kaynaklarını dene — hem film hem dizi destekler
-        val imuSuccess = runCatching { Imu.invoke(id, type, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
-        if (imuSuccess) return@coroutineScope true
+        val isMovie = type == "movie"
+        val jobs = mutableListOf<kotlinx.coroutines.Deferred<Boolean>>()
 
-        // 2. Imu bulamazsa Shanks (Filmekseni) kaynağına geç — sadece film
-        val shanksSuccess = runCatching { Shanks.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
-        if (shanksSuccess) return@coroutineScope true
+        // Helper function to run source with a 5-second timeout in parallel
+        fun runSource(block: suspend () -> Boolean) = async {
+            runCatching {
+                kotlinx.coroutines.withTimeoutOrNull(5000L) {
+                    block()
+                } ?: false
+            }.getOrDefault(false)
+        }
 
-        // 3. Shanks bulamazsa Loki kaynağına geç — hem film hem dizi
-        val dizifilmSuccess = runCatching { Loki.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
-        if (dizifilmSuccess) return@coroutineScope true
+        // Add all compatible sources to run in parallel
+        jobs.add(runSource { Imu.invoke(id, type, res.season, res.episode, dedupSubCallback, callback) })
+        if (isMovie) {
+            jobs.add(runSource { Shanks.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) })
+        }
+        jobs.add(runSource { Loki.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) })
+        jobs.add(runSource { Fujitora.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) })
+        if (!isMovie) {
+            jobs.add(runSource { Crocodile.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) })
+            jobs.add(runSource { Smoker.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) })
+        }
+        if (isMovie) {
+            jobs.add(runSource { Xebec.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) })
+            jobs.add(runSource { Enel.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) })
+        }
+        jobs.add(runSource { Vegapunk.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) })
+        jobs.add(runSource { Rayleigh.invoke(id, type, res.season, res.episode, dedupSubCallback, callback) })
+        jobs.add(runSource { Chopper.invoke(id, type, res.season, res.episode, dedupSubCallback, callback) })
+        jobs.add(runSource { Shamrock.invoke(id, type, res.season, res.episode, dedupSubCallback, callback) })
 
-        // 4. Loki bulamazsa Fujitora (Animecix) kaynağına geç — anime ağırlıklı dizi ve film
-        val fujitoraSuccess = runCatching { Fujitora.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
-        if (fujitoraSuccess) return@coroutineScope true
-
-        // 5. Fujitora bulamazsa Crocodile (Dizilla) kaynagina gec -- sadece dizi
-        val crocodileSuccess = runCatching { Crocodile.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
-        if (crocodileSuccess) return@coroutineScope true
-
-        // 6. Crocodile bulamazsa Smoker (Dizipal) kaynağına geç — sadece dizi
-        val smokerSuccess = runCatching { Smoker.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
-        if (smokerSuccess) return@coroutineScope true
-
-        // 7. Smoker bulamazsa Xebec (FullHDFilmizlesene) kaynağına geç — sadece film
-        val xebecSuccess = runCatching { Xebec.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
-        if (xebecSuccess) return@coroutineScope true
-
-        // 8. Xebec bulamazsa Enel (SelcukFlix) kaynağına geç — sadece film
-        val enelSuccess = runCatching { Enel.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
-        if (enelSuccess) return@coroutineScope true
-
-        // 9. Enel bulamazsa Vegapunk kaynağına geç — film, dizi ve anime destekler
-        val vegapunkSuccess = runCatching { Vegapunk.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
-        if (vegapunkSuccess) return@coroutineScope true
-
-        // 10. Vegapunk bulamazsa Sabo (CinemaCity) kaynağına geç — yerli/yabancı film ve dizi
-        val saboSuccess = runCatching { Sabo.invoke(id, type, imdbId, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
-        if (saboSuccess) return@coroutineScope true
-
-        // 11. Sabo bulamazsa Rayleigh (vixsrc.to) kaynağına geç — yabancı film ve dizi
-        val rayleighSuccess = runCatching { Rayleigh.invoke(id, type, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
-        if (rayleighSuccess) return@coroutineScope true
-
-        // 12. Rayleigh bulamazsa Chopper (Cineby/Videasy) kaynağına geç — yabancı film ve dizi
-        val chopperSuccess = runCatching { Chopper.invoke(id, type, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
-        if (chopperSuccess) return@coroutineScope true
-
-        // 13. Chopper bulamazsa Nusjuro (YFlix) kaynağına geç — yabancı film ve dizi
-        val nusjuroSuccess = runCatching { Nusjuro.invoke(id, type, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
-        if (nusjuroSuccess) return@coroutineScope true
-
-        // 14. Nusjuro bulamazsa Shamrock (Fembox) kaynağına geç — yabancı film ve dizi
-        val shamrockSuccess = runCatching { Shamrock.invoke(id, type, res.season, res.episode, dedupSubCallback, callback) }.getOrDefault(false)
-        if (shamrockSuccess) return@coroutineScope true
-
-        return@coroutineScope false
+        val results = jobs.awaitAll()
+        return@coroutineScope results.any { it }
     }
 
     data class LinkData(

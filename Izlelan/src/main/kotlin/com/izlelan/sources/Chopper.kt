@@ -66,7 +66,7 @@ object Chopper {
         val encTitle = cleanEncode(cleanEncode(title))
         val isMovie = type.equals("movie", ignoreCase = true)
 
-        val servers = listOf("mb-flix")
+        val servers = listOf("mb-flix", "cdn")
         var foundAny = false
 
         for (server in servers) {
@@ -128,10 +128,12 @@ object Chopper {
                         else -> Qualities.Unknown.value
                     }
 
+                    val sName = server.split("-").joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+                    val displayName = "Chopper - $sName"
                     callback(
                         newExtractorLink(
-                            source = "Chopper",
-                            name = "Chopper",
+                            source = displayName,
+                            name = displayName,
                             url = streamUrl,
                             type = ExtractorLinkType.M3U8
                         ) {
