@@ -20,14 +20,13 @@ object TurkceAltyazi {
 
     // Convert SRT subtitles to WebVTT format for Cloudstream player compatibility
     private fun srtToVtt(srtContent: String): String {
-        val cleaned = srtContent.replace("\r\n", "\n").replace("\r", "\n")
-        
-        // Pattern to match timestamp lines e.g. "00:01:20,123 --> 00:01:23,456"
-        val timestampRegex = Regex("""(\d{2}:\d{2}:\d{2}),(\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}),(\d{3})""")
+        // Strip BOM if present
+        val cleanBOM = srtContent.replace("\uFEFF", "").replace("\uEFBBBF", "")
+        val cleaned = cleanBOM.replace("\r\n", "\n").replace("\r", "\n")
         
         val vttLines = cleaned.split("\n").map { line ->
-            if (timestampRegex.containsMatchIn(line)) {
-                // Replace comma with dot for WebVTT compliance
+            if (line.contains("-->")) {
+                // Replace commas with dots in timestamp lines for WebVTT compliance
                 line.replace(",", ".")
             } else {
                 line
@@ -38,18 +37,43 @@ object TurkceAltyazi {
     }
 
     private fun decodeContent(bytes: ByteArray): String {
-        // Try UTF-8 with BOM, then UTF-8, then Windows-1254 (Turkish), then ISO-8859-9
-        val encodings = listOf("UTF-8", "windows-1254", "ISO-8859-9", "UTF-16")
-        for (enc in encodings) {
-            try {
-                val decoded = String(bytes, charset(enc))
-                if (decoded.contains("-->")) {
-                    return decoded
-                }
-            } catch (e: Exception) {
-                // Try next encoding
+        // Try strict UTF-8 first
+        try {
+            val utf8Decoder = Charsets.UTF_8.newDecoder()
+            utf8Decoder.onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+            utf8Decoder.onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+            val decoded = utf8Decoder.decode(java.nio.ByteBuffer.wrap(bytes)).toString()
+            if (decoded.contains("-->")) {
+                return decoded
             }
+        } catch (e: Exception) {
+            // Not valid UTF-8
         }
+
+        // Try Windows-1254 (Turkish)
+        try {
+            val decoded = String(bytes, charset("windows-1254"))
+            if (decoded.contains("-->")) {
+                return decoded
+            }
+        } catch (e: Exception) {}
+
+        // Try ISO-8859-9
+        try {
+            val decoded = String(bytes, charset("ISO-8859-9"))
+            if (decoded.contains("-->")) {
+                return decoded
+            }
+        } catch (e: Exception) {}
+
+        // Try UTF-16
+        try {
+            val decoded = String(bytes, charset("UTF-16"))
+            if (decoded.contains("-->")) {
+                return decoded
+            }
+        } catch (e: Exception) {}
+
         return String(bytes, Charsets.UTF_8)
     }
 
@@ -153,53 +177,95 @@ object TurkceAltyazi {
                 if (zipRes.code != 200) continue
                 val zipBytes = zipRes.okhttpResponse.body?.bytes() ?: continue
 
-                // 4. Extract subtitle from Zip
+                // 4. Read all .srt files from Zip in memory
                 val zipInput = ZipInputStream(ByteArrayInputStream(zipBytes))
                 var entry = zipInput.nextEntry
-                var subBytes: ByteArray? = null
-                var subFileName = ""
-
-                val sPad = (season ?: 1).toString().padStart(2, '0')
-                val ePad = (episode ?: 1).toString().padStart(2, '0')
-                val sPattern = "S$sPad"
-                val ePattern = "E$ePad"
+                val srtFiles = mutableListOf<Pair<String, ByteArray>>()
 
                 while (entry != null) {
-                    val name = entry.name.lowercase()
-                    val isSubtitle = name.endsWith(".srt") || name.endsWith(".txt")
-                    val isMac = name.startsWith("__macosx")
+                    val name = entry.name
+                    val lowerName = name.lowercase()
+                    val isSrt = lowerName.endsWith(".srt")
+                    val isMac = lowerName.startsWith("__macosx") || lowerName.contains("/.")
 
-                    if (isSubtitle && !isMac) {
+                    if (isSrt && !isMac) {
                         val outStream = ByteArrayOutputStream()
                         val buffer = ByteArray(4096)
                         var len = zipInput.read(buffer)
-                        while (len > 0) {
-                            outStream.write(buffer, 0, len)
+                        while (len != -1) {
+                            if (len > 0) {
+                                outStream.write(buffer, 0, len)
+                            }
                             len = zipInput.read(buffer)
                         }
-                        
-                        val entryBytes = outStream.toByteArray()
-                        
-                        // Smart matching for series episodes
-                        if (season != null && episode != null) {
-                            if (name.contains(sPattern, ignoreCase = true) && name.contains(ePattern, ignoreCase = true)) {
-                                subBytes = entryBytes
-                                subFileName = entry.name
-                                break
-                            } else if (name.contains("${season}x$ePad", ignoreCase = true)) {
-                                subBytes = entryBytes
-                                subFileName = entry.name
-                                break
-                            }
-                        }
-                        
-                        // Default fallback
-                        subBytes = entryBytes
-                        subFileName = entry.name
+                        srtFiles.add(name to outStream.toByteArray())
                     }
                     entry = zipInput.nextEntry
                 }
                 zipInput.close()
+
+                if (srtFiles.isEmpty()) continue
+
+                var subBytes: ByteArray? = null
+
+                // If it is a movie, or if there is only 1 srt file, use it!
+                if (season == null || episode == null || srtFiles.size == 1) {
+                    subBytes = srtFiles.first().second
+                } else {
+                    // Match for TV Series episode
+                    val sPad = season.toString().padStart(2, '0')
+                    val ePad2 = episode.toString().padStart(2, '0')
+                    val ePad3 = episode.toString().padStart(3, '0')
+                    
+                    val priorityPatterns = listOf(
+                        "S${sPad}E${ePad2}",
+                        "S${season}E${episode}",
+                        "S${sPad}E${ePad3}",
+                        "${season}x${ePad2}",
+                        "${season}x${ePad3}",
+                        "${season}x${episode}"
+                    )
+
+                    // Pass 1: Strict S/E patterns
+                    for (pattern in priorityPatterns) {
+                        val match = srtFiles.find { it.first.contains(pattern, ignoreCase = true) }
+                        if (match != null) {
+                            subBytes = match.second
+                            break
+                        }
+                    }
+
+                    // Pass 2: Episode number matching (e.g. "bl 05", "bölüm 05", "ep 05", "- 05")
+                    if (subBytes == null) {
+                        val epPatterns = listOf(
+                            "bl $ePad2", "bl $episode",
+                            "bölüm $ePad2", "bölüm $episode",
+                            "bolum $ePad2", "bolum $episode",
+                            "ep $ePad2", "ep $episode",
+                            "episode $ePad2", "episode $episode",
+                            "-$ePad2", "-$episode",
+                            "_$ePad2", "_$episode",
+                            " $ePad2 ", " $episode "
+                        )
+                        for (pattern in epPatterns) {
+                            val match = srtFiles.find { it.first.contains(pattern, ignoreCase = true) }
+                            if (match != null) {
+                                subBytes = match.second
+                                break
+                            }
+                        }
+                    }
+
+                    // Pass 3: Index based matching (if srt files count is close or matches the episodes)
+                    if (subBytes == null) {
+                        // Sort alphabetically to align with episode order
+                        val sortedSrts = srtFiles.sortedBy { it.first.lowercase() }
+                        val idx = episode - 1
+                        if (idx >= 0 && idx < sortedSrts.size) {
+                            subBytes = sortedSrts[idx].second
+                        }
+                    }
+                }
 
                 if (subBytes != null) {
                     val decodedSub = decodeContent(subBytes)
