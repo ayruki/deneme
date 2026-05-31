@@ -106,8 +106,8 @@ object Loki {
         val videoId = embedUrl.substringAfterLast("/").trim()
         if (videoId.isBlank()) return false
 
-        // Fetch subtitles (Commented out to avoid duplicates since Vidlop's HLS already embeds them)
-        // extractVidlopSubtitles(videoId, subtitleCallback)
+        // Fetch subtitles
+        extractVidlopSubtitles(videoId, subtitleCallback)
 
         // Fetch video stream
         val vDataRes = runCatching {

@@ -353,7 +353,7 @@ class IzlelanProvider : MainAPI() {
                 val newLabel = if (sub.lang.contains(sourceName, ignoreCase = true)) {
                     sub.lang
                 } else {
-                    "${sub.lang} ($sourceName)"
+                    "[$sourceName] ${sub.lang}"
                 }
                 subtitleCallback(SubtitleFile(newLabel, sub.url).apply { headers = sub.headers })
             }
