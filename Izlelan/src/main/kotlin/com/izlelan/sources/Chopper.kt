@@ -121,6 +121,7 @@ object Chopper {
                 val quality = src.optString("quality")
                 if (streamUrl.isNotBlank()) {
                     val qVal = when (quality.lowercase().trim()) {
+                        "4k", "2160p" -> Qualities.P2160.value
                         "1080p" -> Qualities.P1080.value
                         "720p" -> Qualities.P720.value
                         "480p" -> Qualities.P480.value
