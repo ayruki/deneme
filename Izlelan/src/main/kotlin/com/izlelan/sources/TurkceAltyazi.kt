@@ -97,8 +97,8 @@ object TurkceAltyazi {
 
             var foundAny = false
 
-            // Limit to top 5 subtitles to avoid network overload
-            val filteredRows = rows.take(8).mapNotNull { row ->
+            // Filter by season and episode FIRST, then take the top 8 matching subtitles to avoid overloading
+            val filteredRows = rows.mapNotNull { row ->
                 val langSpan = row.selectFirst(".aldil span")
                 val isTr = langSpan?.className()?.contains("flagtr", ignoreCase = true) == true
                 if (!isTr) return@mapNotNull null
@@ -143,7 +143,7 @@ object TurkceAltyazi {
                 ).joinToString(" - ")
 
                 Triple(subUrl, label, isPackage)
-            }
+            }.take(8)
 
             for ((subPageUrl, label, isPackage) in filteredRows) {
                 // 2. Fetch subtitle download page
