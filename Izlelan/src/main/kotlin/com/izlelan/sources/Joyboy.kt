@@ -108,6 +108,30 @@ object Joyboy {
         return data
     }
 
+    private fun getCr(scriptText: String): String? {
+        val atobMatches = Regex("""atob\(\s*['"]([^'"]+)['"]\s*\)""").findAll(scriptText).toList()
+        if (atobMatches.size >= 2) {
+            val part1 = String(Base64.decode(atobMatches[0].groupValues[1], Base64.DEFAULT), Charsets.UTF_8)
+            val part2 = String(Base64.decode(atobMatches[1].groupValues[1], Base64.DEFAULT), Charsets.UTF_8)
+            return part1 + part2
+        }
+
+        val arrayMatches = Regex("""=\s*\[([0-9,\s]+)\]""").findAll(scriptText).toList()
+        if (arrayMatches.size >= 2) {
+            val arr1 = arrayMatches[0].groupValues[1].split(",").mapNotNull { it.trim().toIntOrNull() }
+            val arr2 = arrayMatches[1].groupValues[1].split(",").mapNotNull { it.trim().toIntOrNull() }
+            if (arr1.isNotEmpty() && arr2.isNotEmpty()) {
+                val sb = StringBuilder()
+                for (i in arr1.indices) {
+                    val xor = arr1[i] xor arr2[i % arr2.size]
+                    sb.append(xor.toChar())
+                }
+                return sb.toString()
+            }
+        }
+        return null
+    }
+
     private fun getVar(html: String, name: String): String? {
         return Regex("""(?:var|let|const)?\s*$name\s*=\s*['"]([^'"]+)['"]""").find(html)?.groupValues?.get(1)
             ?: Regex("""$name\s*:\s*['"]([^'"]+)['"]""").find(html)?.groupValues?.get(1)
@@ -140,9 +164,14 @@ object Joyboy {
         if (embedRes.code != 200) return false
         val html = embedRes.text
 
-        val cr = getVar(html, "_cr") ?: return false
-        val ept = getVar(html, "_ept") ?: return false
-        val ws = getVar(html, "_ws") ?: return false
+        // Search for the script containing _ept
+        val scriptText = Regex("""<script[^>]*>([\s\S]*?)</script>""").findAll(html)
+            .map { it.groupValues[1] }
+            .firstOrNull { it.contains("_ept") } ?: return false
+
+        val cr = getCr(scriptText) ?: return false
+        val ept = getVar(scriptText, "_ept") ?: return false
+        val ws = getVar(scriptText, "_ws") ?: return false
 
         val pt = xd(ept, cr)
         val digestWcr = MessageDigest.getInstance("SHA-256")
