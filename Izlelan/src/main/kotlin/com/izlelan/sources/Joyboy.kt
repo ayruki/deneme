@@ -19,7 +19,7 @@ object Joyboy {
     private val mainUrl = BaseUrls.get("joyboy", "https://japierdolevid.com")
 
     private val headers = mapOf(
-        "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "User-Agent" to USER_AGENT,
         "Referer" to "$mainUrl/"
     )
 
@@ -279,7 +279,11 @@ object Joyboy {
                 url = hlsMatch,
                 referer = "https://japierdolevid.com/",
                 quality = Qualities.Unknown.value,
-                headers = mapOf("Referer" to "https://japierdolevid.com/", "User-Agent" to headers.getValue("User-Agent")),
+                headers = mapOf(
+                    "Referer" to "https://japierdolevid.com/",
+                    "User-Agent" to USER_AGENT,
+                    "Origin" to "https://japierdolevid.com"
+                ),
                 type = ExtractorLinkType.M3U8
             )
         )
