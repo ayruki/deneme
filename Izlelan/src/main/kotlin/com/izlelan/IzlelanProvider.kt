@@ -412,6 +412,7 @@ class IzlelanProvider : MainAPI() {
         }
 
         // Add all compatible sources to run in parallel
+        jobs.add(runSource("🇹🇷 Joyboy") { callback -> Joyboy.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Joyboy"), callback) })
         jobs.add(runSource("🇹🇷 Imu") { callback -> Imu.invoke(id, type, res.season, res.episode, getSubCallbackFor("🇹🇷 Imu"), callback) })
         if (isMovie) {
             jobs.add(runSource("🇹🇷 Shanks") { callback -> Shanks.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Shanks"), callback) })
@@ -442,6 +443,7 @@ class IzlelanProvider : MainAPI() {
         
         // Sort collected links by preferred source order (Turkish first, then English)
         val preferredOrder = listOf(
+            "🇹🇷 Joyboy",
             "🇹🇷 Borsalino",
             "🇹🇷 Ace",
             "🇹🇷 Shanks", 
