@@ -391,9 +391,16 @@ class IzlelanProvider : MainAPI() {
                 kotlinx.coroutines.withTimeoutOrNull(10000L) {
                     block { link ->
                         val taggedLink = if (!link.source.startsWith("🇹🇷") && !link.source.startsWith("🇬🇧")) {
-                            link.copy(
+                            ExtractorLink(
                                 source = sourceName,
-                                name = "$sourceName [${link.source}]"
+                                name = "$sourceName [${link.source}]",
+                                url = link.url,
+                                referer = link.referer,
+                                quality = link.quality,
+                                headers = link.headers,
+                                extractorData = link.extractorData,
+                                type = link.type,
+                                audioTracks = link.audioTracks
                             )
                         } else {
                             link
