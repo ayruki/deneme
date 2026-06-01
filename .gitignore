@@ -10,3 +10,9 @@
 .cxx
 local.properties
 .vscode
+scratch/
+__pycache__/
+*.pyc
+*.html
+*.log
+.python_history

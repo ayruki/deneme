@@ -348,7 +348,11 @@ class IzlelanProvider : MainAPI() {
 
         val seenSubUrls = java.util.Collections.synchronizedSet(mutableSetOf<String>())
         fun getSubCallbackFor(sourceName: String) = { sub: SubtitleFile ->
-            val normalized = sub.url.substringBefore("?")
+            val normalized = if (sourceName.equals("TurkceAltyazi", ignoreCase = true) || sub.url.contains("turkcealtyazi-worker")) {
+                sub.url
+            } else {
+                sub.url.substringBefore("?")
+            }
             if (seenSubUrls.add(normalized)) {
                 val newLabel = if (sub.lang.contains(sourceName, ignoreCase = true)) {
                     sub.lang
@@ -381,36 +385,50 @@ class IzlelanProvider : MainAPI() {
         val isMovie = type == "movie"
         val jobs = mutableListOf<kotlinx.coroutines.Deferred<Boolean>>()
 
-        // Helper function to run source with a 5-second timeout in parallel
-        fun runSource(block: suspend () -> Boolean) = async {
+        // Helper function to run source with a 10-second timeout in parallel and tag links
+        fun runSource(sourceName: String, block: suspend ((ExtractorLink) -> Unit) -> Boolean) = async {
             runCatching {
-                kotlinx.coroutines.withTimeoutOrNull(5000L) {
-                    block()
+                kotlinx.coroutines.withTimeoutOrNull(10000L) {
+                    block { link ->
+                        val taggedLink = if (!link.source.startsWith("🇹🇷") && !link.source.startsWith("🇬🇧")) {
+                            link.copy(
+                                source = sourceName,
+                                name = "$sourceName [${link.source}]"
+                            )
+                        } else {
+                            link
+                        }
+                        customCallback(taggedLink)
+                    }
                 } ?: false
             }.getOrDefault(false)
         }
 
         // Add all compatible sources to run in parallel
-        jobs.add(runSource { Imu.invoke(id, type, res.season, res.episode, getSubCallbackFor("🇹🇷 Imu"), customCallback) })
+        jobs.add(runSource("🇹🇷 Imu") { callback -> Imu.invoke(id, type, res.season, res.episode, getSubCallbackFor("🇹🇷 Imu"), callback) })
         if (isMovie) {
-            jobs.add(runSource { Shanks.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Shanks"), customCallback) })
+            jobs.add(runSource("🇹🇷 Shanks") { callback -> Shanks.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Shanks"), callback) })
         }
-        jobs.add(runSource { Fujitora.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Fujitora"), customCallback) })
+        jobs.add(runSource("🇹🇷 Fujitora") { callback -> Fujitora.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Fujitora"), callback) })
         if (!isMovie) {
-            jobs.add(runSource { Crocodile.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Crocodile"), customCallback) })
-            jobs.add(runSource { Smoker.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Smoker"), customCallback) })
+            jobs.add(runSource("🇹🇷 Crocodile") { callback -> Crocodile.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Crocodile"), callback) })
+            jobs.add(runSource("🇹🇷 Smoker") { callback -> Smoker.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Smoker"), callback) })
         }
         if (isMovie) {
-            jobs.add(runSource { Xebec.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Xebec"), customCallback) })
-            jobs.add(runSource { Enel.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Enel"), customCallback) })
+            jobs.add(runSource("🇹🇷 Xebec") { callback -> Xebec.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Xebec"), callback) })
+            jobs.add(runSource("🇹🇷 Enel") { callback -> Enel.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Enel"), callback) })
         }
-        jobs.add(runSource { Vegapunk.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Vegapunk"), customCallback) })
-        jobs.add(runSource { Borsalino.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Borsalino"), customCallback) })
-        jobs.add(runSource { Ace.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Ace"), customCallback) })
-        jobs.add(runSource { Rayleigh.invoke(id, type, res.season, res.episode, getSubCallbackFor("🇬🇧 Rayleigh"), customCallback) })
-        jobs.add(runSource { Chopper.invoke(id, type, res.season, res.episode, getSubCallbackFor("🇬🇧 Chopper"), customCallback) })
-        jobs.add(runSource { 
-            TurkceAltyazi.invoke(id, imdbId, res.season, res.episode, getSubCallbackFor("TurkceAltyazi"))
+        jobs.add(runSource("🇹🇷 Vegapunk") { callback -> Vegapunk.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Vegapunk"), callback) })
+        jobs.add(runSource("🇹🇷 Borsalino") { callback -> Borsalino.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Borsalino"), callback) })
+        jobs.add(runSource("🇹🇷 Ace") { callback -> Ace.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Ace"), callback) })
+        jobs.add(runSource("🇬🇧 Rayleigh") { callback -> Rayleigh.invoke(id, type, res.season, res.episode, getSubCallbackFor("🇬🇧 Rayleigh"), callback) })
+        jobs.add(runSource("🇬🇧 Chopper") { callback -> Chopper.invoke(id, type, res.season, res.episode, getSubCallbackFor("🇬🇧 Chopper"), callback) })
+        jobs.add(async { 
+            runCatching {
+                kotlinx.coroutines.withTimeoutOrNull(10000L) {
+                    TurkceAltyazi.invoke(id, imdbId, res.season, res.episode, getSubCallbackFor("TurkceAltyazi"))
+                } ?: false
+            }.getOrDefault(false)
         })
 
         val results = jobs.awaitAll()
@@ -430,7 +448,13 @@ class IzlelanProvider : MainAPI() {
             "🇬🇧 Rayleigh", 
             "🇬🇧 Chopper"
         )
-        val sortedLinks = collectedLinks.sortedWith(compareBy { link ->
+        val sortedLinks = collectedLinks.sortedWith(compareBy<ExtractorLink> { link ->
+            when {
+                link.source.contains("🇹🇷") -> 0
+                link.source.contains("🇬🇧") -> 1
+                else -> 2
+            }
+        }.thenBy { link ->
             val index = preferredOrder.indexOfFirst { link.source.contains(it, ignoreCase = true) }
             if (index != -1) index else preferredOrder.size
         })
