@@ -8,7 +8,7 @@ import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.ExtractorLinkType
 import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.cloudstream3.utils.newExtractorLink
-import com.lagradost.cloudstream3.utils.AppUtils.toJson
+import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.izlelan.IzlelanProvider
 import com.izlelan.BaseUrls
 import org.jsoup.Jsoup
@@ -400,7 +400,8 @@ object Shamrock {
                 "pagelimit" to "20"
             )
 
-            val jsonString = com.lagradost.cloudstream3.utils.AppUtils.toJson(requestData)
+            val mapper = com.fasterxml.jackson.databind.ObjectMapper().registerKotlinModule()
+            val jsonString = mapper.writeValueAsString(requestData)
             val encryptedData = encrypt(jsonString)
             val appKeyHash = md5(appKey)
             val verify = generateVerify(encryptedData)
@@ -411,7 +412,7 @@ object Shamrock {
                 "encrypt_data" to encryptedData
             )
 
-            val bodyJson = com.lagradost.cloudstream3.utils.AppUtils.toJson(bodyDict)
+            val bodyJson = mapper.writeValueAsString(bodyDict)
             val base64Body = android.util.Base64.encodeToString(bodyJson.toByteArray(), android.util.Base64.DEFAULT).trim().replace("\n", "")
 
             val formData = mapOf(
