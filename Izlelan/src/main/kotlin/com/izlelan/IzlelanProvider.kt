@@ -3,6 +3,7 @@ package com.izlelan
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.LoadResponse.Companion.addImdbId
 import com.lagradost.cloudstream3.LoadResponse.Companion.addTrailer
+import com.lagradost.cloudstream3.LoadResponse.Companion.addLogo
 import com.lagradost.cloudstream3.utils.*
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
@@ -133,9 +134,9 @@ class IzlelanProvider : MainAPI() {
         val type = data.type ?: "movie"
 
         val detailsUrl = if (type == "movie") {
-            "$mainUrl/movie/$id?api_key=$apiKey&language=$langCode&append_to_response=alternative_titles,credits,external_ids,recommendations"
+            "$mainUrl/movie/$id?api_key=$apiKey&language=$langCode&append_to_response=alternative_titles,credits,external_ids,recommendations,images&include_image_language=tr,en,null"
         } else {
-            "$mainUrl/tv/$id?api_key=$apiKey&language=$langCode&append_to_response=alternative_titles,credits,external_ids,recommendations"
+            "$mainUrl/tv/$id?api_key=$apiKey&language=$langCode&append_to_response=alternative_titles,credits,external_ids,recommendations,images&include_image_language=tr,en,null"
         }
 
         val videosUrl = if (type == "movie") {
@@ -234,6 +235,12 @@ class IzlelanProvider : MainAPI() {
         // 3. Tür Etiketleri (Genres)
         finalTags.addAll(genres)
 
+        val logos = details.images?.logos.orEmpty()
+        val logoUrl = (logos.firstOrNull { it.iso_639_1 == "tr" }
+            ?: logos.firstOrNull { it.iso_639_1 == "en" }
+            ?: logos.firstOrNull { it.iso_639_1 == originalLanguage }
+            ?: logos.firstOrNull())?.file_path?.let { "https://image.tmdb.org/t/p/w500$it" }
+
         if (type == "movie") {
             return newMovieLoadResponse(
                 title,
@@ -254,6 +261,9 @@ class IzlelanProvider : MainAPI() {
                 }
                 if (imdbId != null) {
                     addImdbId(imdbId)
+                }
+                if (logoUrl != null) {
+                    addLogo(logoUrl)
                 }
             }
         } else {
@@ -330,6 +340,9 @@ class IzlelanProvider : MainAPI() {
                 }
                 if (imdbId != null) {
                     addImdbId(imdbId)
+                }
+                if (logoUrl != null) {
+                    addLogo(logoUrl)
                 }
             }
         }
@@ -413,6 +426,7 @@ class IzlelanProvider : MainAPI() {
 
         // Add all compatible sources to run in parallel
         jobs.add(runSource("🇹🇷 Joyboy") { callback -> Joyboy.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Joyboy"), callback) })
+        jobs.add(runSource("🇹🇷 Blackbeard") { callback -> Blackbeard.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Blackbeard"), callback) })
         jobs.add(runSource("🇬🇧 Shamrock") { callback -> Shamrock.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇬🇧 Shamrock"), callback) })
         jobs.add(runSource("🇹🇷 Imu") { callback -> Imu.invoke(id, type, res.season, res.episode, getSubCallbackFor("🇹🇷 Imu"), callback) })
         if (isMovie) {
@@ -444,6 +458,7 @@ class IzlelanProvider : MainAPI() {
         
         // Sort collected links by preferred source order (Turkish first, then English)
         val preferredOrder = listOf(
+            "🇹🇷 Blackbeard",
             "🇹🇷 Joyboy",
             "🇬🇧 Shamrock",
             "🇹🇷 Borsalino",
@@ -527,7 +542,17 @@ class IzlelanProvider : MainAPI() {
         val recommendations: Results? = null,
         val production_countries: List<ProductionCountry>? = null,
         val original_language: String? = null,
-        val alternative_titles: AlternativeTitles? = null
+        val alternative_titles: AlternativeTitles? = null,
+        val images: Images? = null
+    )
+ 
+    data class Images(
+        val logos: List<Logo>? = null
+    )
+ 
+    data class Logo(
+        val file_path: String? = null,
+        val iso_639_1: String? = null
     )
  
     data class AlternativeTitles(
