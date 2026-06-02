@@ -8,6 +8,7 @@ import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.ExtractorLinkType
 import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.cloudstream3.utils.newExtractorLink
+import com.lagradost.cloudstream3.utils.AppUtils.toJson
 import com.izlelan.IzlelanProvider
 import com.izlelan.BaseUrls
 import org.jsoup.Jsoup
@@ -430,7 +431,11 @@ object Shamrock {
             )
 
             return try {
-                val response = app.post(baseUrl, headers = headers, data = bodyString).parsedSafe<SearchResponse>()
+                val response = app.post(
+                    baseUrl, 
+                    headers = headers, 
+                    data = formData
+                ).parsedSafe<SearchResponse>()
                 response?.data.orEmpty()
             } catch (e: Exception) {
                 emptyList()
