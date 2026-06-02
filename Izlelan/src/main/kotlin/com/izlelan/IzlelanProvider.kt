@@ -3,7 +3,6 @@ package com.izlelan
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.LoadResponse.Companion.addImdbId
 import com.lagradost.cloudstream3.LoadResponse.Companion.addTrailer
-import com.lagradost.cloudstream3.LoadResponse.Companion.addLogo
 import com.lagradost.cloudstream3.utils.*
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
@@ -134,9 +133,9 @@ class IzlelanProvider : MainAPI() {
         val type = data.type ?: "movie"
 
         val detailsUrl = if (type == "movie") {
-            "$mainUrl/movie/$id?api_key=$apiKey&language=$langCode&append_to_response=alternative_titles,credits,external_ids,recommendations,images&include_image_language=tr,en,null"
+            "$mainUrl/movie/$id?api_key=$apiKey&language=$langCode&append_to_response=alternative_titles,credits,external_ids,recommendations"
         } else {
-            "$mainUrl/tv/$id?api_key=$apiKey&language=$langCode&append_to_response=alternative_titles,credits,external_ids,recommendations,images&include_image_language=tr,en,null"
+            "$mainUrl/tv/$id?api_key=$apiKey&language=$langCode&append_to_response=alternative_titles,credits,external_ids,recommendations"
         }
 
         val videosUrl = if (type == "movie") {
@@ -235,12 +234,6 @@ class IzlelanProvider : MainAPI() {
         // 3. Tür Etiketleri (Genres)
         finalTags.addAll(genres)
 
-        val logos = details.images?.logos.orEmpty()
-        val logoUrl = (logos.firstOrNull { it.iso_639_1 == "tr" }
-            ?: logos.firstOrNull { it.iso_639_1 == "en" }
-            ?: logos.firstOrNull { it.iso_639_1 == originalLanguage }
-            ?: logos.firstOrNull())?.file_path?.let { "https://image.tmdb.org/t/p/w500$it" }
-
         if (type == "movie") {
             return newMovieLoadResponse(
                 title,
@@ -261,9 +254,6 @@ class IzlelanProvider : MainAPI() {
                 }
                 if (imdbId != null) {
                     addImdbId(imdbId)
-                }
-                if (logoUrl != null) {
-                    addLogo(logoUrl)
                 }
             }
         } else {
@@ -340,9 +330,6 @@ class IzlelanProvider : MainAPI() {
                 }
                 if (imdbId != null) {
                     addImdbId(imdbId)
-                }
-                if (logoUrl != null) {
-                    addLogo(logoUrl)
                 }
             }
         }
@@ -542,17 +529,7 @@ class IzlelanProvider : MainAPI() {
         val recommendations: Results? = null,
         val production_countries: List<ProductionCountry>? = null,
         val original_language: String? = null,
-        val alternative_titles: AlternativeTitles? = null,
-        val images: Images? = null
-    )
- 
-    data class Images(
-        val logos: List<Logo>? = null
-    )
- 
-    data class Logo(
-        val file_path: String? = null,
-        val iso_639_1: String? = null
+        val alternative_titles: AlternativeTitles? = null
     )
  
     data class AlternativeTitles(
