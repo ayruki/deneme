@@ -28,9 +28,9 @@ object CFClient {
             url,
             headers = headers ?: emptyMap(),
             referer = referer,
-            params = params,
+            params = params ?: emptyMap(),
             cookies = cookies ?: emptyMap(),
-            timeout = timeout,
+            timeout = timeout ?: 30L,
             allowRedirects = allowRedirects ?: true
         )
         return if (isCloudflarePage(response)) {
@@ -39,9 +39,9 @@ object CFClient {
                     url,
                     headers = headers ?: emptyMap(),
                     referer = referer,
-                    params = params,
+                    params = params ?: emptyMap(),
                     cookies = cookies ?: emptyMap(),
-                    timeout = timeout,
+                    timeout = timeout ?: 30L,
                     interceptor = cfKiller,
                     allowRedirects = allowRedirects ?: true
                 )
@@ -51,9 +51,9 @@ object CFClient {
                         url,
                         headers = headers ?: emptyMap(),
                         referer = referer,
-                        params = params,
+                        params = params ?: emptyMap(),
                         cookies = cookies ?: emptyMap(),
-                        timeout = timeout,
+                        timeout = timeout ?: 30L,
                         interceptor = cfKiller,
                         allowRedirects = allowRedirects ?: true
                     )
@@ -81,11 +81,11 @@ object CFClient {
             url,
             headers = headers ?: emptyMap(),
             referer = referer,
-            params = params,
+            params = params ?: emptyMap(),
             cookies = cookies ?: emptyMap(),
             data = data,
             json = json,
-            timeout = timeout,
+            timeout = timeout ?: 30L,
             allowRedirects = allowRedirects ?: true
         )
         return if (isCloudflarePage(response)) {
@@ -94,11 +94,11 @@ object CFClient {
                     url,
                     headers = headers ?: emptyMap(),
                     referer = referer,
-                    params = params,
+                    params = params ?: emptyMap(),
                     cookies = cookies ?: emptyMap(),
                     data = data,
                     json = json,
-                    timeout = timeout,
+                    timeout = timeout ?: 30L,
                     interceptor = cfKiller,
                     allowRedirects = allowRedirects ?: true
                 )
@@ -108,11 +108,11 @@ object CFClient {
                         url,
                         headers = headers ?: emptyMap(),
                         referer = referer,
-                        params = params,
+                        params = params ?: emptyMap(),
                         cookies = cookies ?: emptyMap(),
                         data = data,
                         json = json,
-                        timeout = timeout,
+                        timeout = timeout ?: 30L,
                         interceptor = cfKiller,
                         allowRedirects = allowRedirects ?: true
                     )
