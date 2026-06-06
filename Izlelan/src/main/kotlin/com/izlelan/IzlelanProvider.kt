@@ -356,6 +356,12 @@ class IzlelanProvider : MainAPI() {
             if (seenSubUrls.add(normalized)) {
                 val newLabel = if (sourceName.equals("TurkceAltyazi", ignoreCase = true)) {
                     "TurkceAltyazi"
+                } else if (sourceName.contains("Shamrock", ignoreCase = true)) {
+                    if (sub.lang.contains("turkish", ignoreCase = true) || sub.lang.contains("tur", ignoreCase = true)) {
+                        "[$sourceName] ${sub.lang}"
+                    } else {
+                        "[$sourceName] Other"
+                    }
                 } else if (sub.lang.contains(sourceName, ignoreCase = true)) {
                     sub.lang
                 } else {
