@@ -434,6 +434,7 @@ class IzlelanProvider : MainAPI() {
         jobs.add(runSource("🇹🇷 Ace") { callback -> Ace.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Ace"), callback) })
         jobs.add(runSource("🇬🇧 Rayleigh") { callback -> Rayleigh.invoke(id, type, res.season, res.episode, getSubCallbackFor("🇬🇧 Rayleigh"), callback) })
         jobs.add(runSource("🇬🇧 Chopper") { callback -> Chopper.invoke(id, type, res.season, res.episode, getSubCallbackFor("🇬🇧 Chopper"), callback) })
+        jobs.add(runSource("🇬🇧 Noland") { callback -> Noland.invoke(id, type, res.season, res.episode, getSubCallbackFor("🇬🇧 Noland"), callback) })
         jobs.add(async { 
             runCatching {
                 kotlinx.coroutines.withTimeoutOrNull(10000L) {
@@ -461,7 +462,8 @@ class IzlelanProvider : MainAPI() {
             "🇹🇷 Fujitora", 
             "🇹🇷 Imu", 
             "🇬🇧 Rayleigh", 
-            "🇬🇧 Chopper"
+            "🇬🇧 Chopper",
+            "🇬🇧 Noland"
         )
         val sortedLinks = collectedLinks.sortedWith(compareBy<ExtractorLink> { link ->
             when {
