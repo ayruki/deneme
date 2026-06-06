@@ -2,6 +2,7 @@ package com.izlelan.sources
 
 import com.izlelan.IzlelanProvider
 import com.izlelan.BaseUrls
+import com.izlelan.network.CFClient
 
 import android.util.Base64
 import com.lagradost.cloudstream3.*
@@ -144,7 +145,7 @@ object Smoker {
     private suspend fun search(imdbId: String): List<SearchResult> {
         val encoded = URLEncoder.encode(imdbId, "UTF-8")
         val res = runCatching {
-            app.post(
+            CFClient.post(
                 "$mainUrl/bg/searchcontent", 
                 headers = headers, 
                 data = mapOf("searchterm" to encoded)
@@ -170,7 +171,7 @@ object Smoker {
 
     private suspend fun getSeriesInfo(slug: String): SeriesInfo? {
         val url = fixUrl(slug) ?: return null
-        val res = runCatching { app.get(url, headers = headers) }.getOrNull() ?: return null
+        val res = runCatching { CFClient.get(url, headers = headers) }.getOrNull() ?: return null
         if (res.code != 200) return null
 
         val document = Jsoup.parse(res.text)
@@ -199,7 +200,7 @@ object Smoker {
         val parsed = runCatching { java.net.URL(iframeUrl) }.getOrNull() ?: return emptyList()
         val baseUrl = "${parsed.protocol}://${parsed.authority}"
         val page = runCatching {
-            app.get(iframeUrl, headers = mapOf("Referer" to mainUrl, "User-Agent" to headers.getValue("User-Agent")))
+            CFClient.get(iframeUrl, headers = mapOf("Referer" to mainUrl, "User-Agent" to headers.getValue("User-Agent")))
         }.getOrNull() ?: return emptyList()
         if (page.code != 200) return emptyList()
 
@@ -251,7 +252,7 @@ object Smoker {
     private suspend fun loadSource2(baseUrl: String, referer: String, videoId: String): String? {
         val encodedId = java.net.URLEncoder.encode(videoId, "UTF-8")
         val res = runCatching {
-            app.get(
+            CFClient.get(
                 "$baseUrl/source2.php?v=$encodedId",
                 headers = mapOf("Referer" to referer, "User-Agent" to headers.getValue("User-Agent"))
             )
@@ -280,7 +281,7 @@ object Smoker {
             ?: return false
 
         // Fetch episode page to extract [data-rm-k]
-        val epPageRes = runCatching { app.get(target.url, headers = headers) }.getOrNull() ?: return false
+        val epPageRes = runCatching { CFClient.get(target.url, headers = headers) }.getOrNull() ?: return false
         if (epPageRes.code != 200) return false
 
         val epDoc = Jsoup.parse(epPageRes.text)
