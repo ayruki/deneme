@@ -5,21 +5,69 @@ import com.izlelan.BaseUrls
 
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
+import org.json.JSONArray
 import org.json.JSONObject
+import android.util.Base64
 
 object Shanks {
     private const val tmdbApiKey = "a2f888b27315e62e471b2d587048f32e"
 
     private fun resolveUrl(base: String, relative: String): String {
-        return if (relative.startsWith("http://") || relative.startsWith("https://")) {
-            relative
-        } else if (relative.startsWith("/")) {
-            val u = java.net.URL(base)
-            "${u.protocol}://${u.authority}$relative"
-        } else {
-            val baseDir = base.substring(0, base.lastIndexOf('/') + 1)
-            baseDir + relative
+        return when {
+            relative.startsWith("http://") || relative.startsWith("https://") -> relative
+            relative.startsWith("//") -> "https:$relative"
+            relative.startsWith("/") -> {
+                val u = java.net.URL(base)
+                "${u.protocol}://${u.authority}$relative"
+            }
+            else -> base.substring(0, base.lastIndexOf('/') + 1) + relative
         }
+    }
+
+    /**
+     * filmekseni.nl artık SPA (Livewire). Player verileri HTML'de
+     * data-video-player attribute içinde JSON olarak gömülü geliyor.
+     * Template'ler Base64 ile kodlanmış iframe HTML'i içeriyor.
+     *
+     * Örnek:
+     *   "template": "PGlmcmFtZSBjbGFzcz0...base64..." → decode → <iframe data-src="//eksenload.top/eplayer/{url}">
+     *   "link": "nspbi1ahvdp97zseyz8n"  → fileId
+     */
+    private fun parsePlayerData(html: String): JSONObject? {
+        // x-data="videoPlayerData(JSON.parse('...'), ..."
+        val match = Regex(
+            """data-video-player[^>]*x-data="videoPlayerData\(JSON\.parse\('(.*?)'\)""",
+            setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE)
+        ).find(html) ?: return null
+
+        val raw = match.groupValues[1]
+            .replace("\\u0022", "\"")
+            .replace("\\u003e", ">")
+            .replace("\\u003c", "<")
+            .replace("\\u0026", "&")
+            .replace("\\u003d", "=")
+            .replace("\\\\", "\\")
+
+        return runCatching { JSONObject(raw) }.getOrNull()
+    }
+
+    /** Base64 decode + template doldur → eksenload URL */
+    private fun buildEksenloadUrl(source: JSONObject): String? {
+        val templateB64 = source.optString("template").takeIf { it.isNotEmpty() } ?: return null
+        val link        = source.optString("link").takeIf { it.isNotEmpty() } ?: return null
+        val slug        = source.optString("slug", "")
+
+        val decoded = runCatching {
+            String(Base64.decode(templateB64, Base64.DEFAULT))
+        }.getOrNull() ?: return null
+
+        val iframeHtml = decoded.replace("{url}", link).replace("{slug}", slug)
+
+        // data-src veya src'den URL al
+        val srcMatch = Regex("""(?:data-src|src)="([^"]+)"""").find(iframeHtml) ?: return null
+        var url = srcMatch.groupValues[1]
+        if (url.startsWith("//")) url = "https:$url"
+        return url
     }
 
     suspend fun invoke(
@@ -31,7 +79,6 @@ object Shanks {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        // Filmekseni (Shanks) only works for movies as of now
         if (type != "movie") return false
 
         // ── Step 1: IMDB ID ────────────────────────────────────────────────────
@@ -44,56 +91,60 @@ object Shanks {
         }
         if (imdbId.isNullOrEmpty()) return false
 
-        // ── Step 2: Search Filmekseni ──────────────────────────────────────────
-        val base = BaseUrls.get("shanks", "https://filmekseni.cc")
+        // ── Step 2: Search filmekseni.nl (GET /api/search?q=) ─────────────────
+        val base = BaseUrls.get("shanks", "https://filmekseni.nl")
         val searchHeaders = mapOf(
-            "User-Agent"       to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept"           to "application/json, text/javascript, */*; q=0.01",
-            "Accept-Language"  to "tr,en;q=0.9",
-            "Content-Type"     to "application/x-www-form-urlencoded; charset=UTF-8",
-            "X-Requested-With" to "XMLHttpRequest",
-            "Referer"          to "$base/"
-        )
-
-        var searchRes = runCatching {
-            app.post("$base/search/", headers = searchHeaders, data = mapOf("query" to imdbId))
-        }.getOrNull() ?: return false
-
-        var json    = runCatching { JSONObject(searchRes.text) }.getOrNull()
-        var results = json?.optJSONArray("result")
-
-        if ((results == null || results.length() == 0) && imdbId.startsWith("tt")) {
-            val singleTId = imdbId.substring(1)
-            searchRes = runCatching {
-                app.post("$base/search/", headers = searchHeaders, data = mapOf("query" to singleTId))
-            }.getOrNull() ?: return false
-            json    = runCatching { JSONObject(searchRes.text) }.getOrNull()
-            results = json?.optJSONArray("result")
-        }
-
-        if (results == null || results.length() == 0) return false
-
-        val slug         = results.getJSONObject(0).getString("slug")
-        val moviePageUrl = "$base/$slug/"
-
-        // ── Step 3: Fetch Movie Page ───────────────────────────────────────────
-        val browserHeaders = mapOf(
             "User-Agent"     to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept"         to "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Accept"         to "application/json",
             "Accept-Language" to "tr,en;q=0.9",
             "Referer"        to "$base/"
         )
+
+        val searchRes = runCatching {
+            app.get("$base/api/search?q=${imdbId}", headers = searchHeaders)
+        }.getOrNull() ?: return false
+
+        val searchJson = runCatching { JSONObject(searchRes.text) }.getOrNull() ?: return false
+        val dataArr    = searchJson.optJSONArray("data") ?: return false
+        if (dataArr.length() == 0) return false
+
+        val firstResult = dataArr.getJSONObject(0)
+        val slug        = firstResult.getString("slug")
+        val movieTitle  = firstResult.optString("title", "")
+        val moviePageUrl = "$base/$slug"
+
+        // ── Step 3: Fetch Movie Page ───────────────────────────────────────────
+        val browserHeaders = mapOf(
+            "User-Agent"      to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept"          to "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language" to "tr,en;q=0.9",
+            "Referer"         to "$base/"
+        )
         val moviePageRes = runCatching { app.get(moviePageUrl, headers = browserHeaders) }.getOrNull() ?: return false
 
-        // ── Step 4: Extract Iframe URL ─────────────────────────────────────────
-        val iframeRegex = Regex("""<iframe[^>]*src=["']([^"']*(?:eksenload|eplayer)[^"']*)[^>]*>""", RegexOption.IGNORE_CASE)
-        val iframeMatch = iframeRegex.find(moviePageRes.text) ?: return false
-        var eksenloadUrl = iframeMatch.groupValues[1]
-        if (eksenloadUrl.startsWith("//")) eksenloadUrl = "https:$eksenloadUrl"
+        // ── Step 4: Parse data-video-player JSON → eksenload URL ───────────────
+        val playerData = parsePlayerData(moviePageRes.text) ?: return false
+
+        // "dual" veya "sub" veya "tr" array'ini bul
+        val sources: JSONArray = playerData.optJSONArray("dual")
+            ?: playerData.optJSONArray("sub")
+            ?: playerData.optJSONArray("tr")
+            ?: return false
+
+        // "vip" (eksenload) kaynağını tercih et, yoksa ilkini al
+        var vipSource: JSONObject? = null
+        for (i in 0 until sources.length()) {
+            val s = sources.getJSONObject(i)
+            if (s.optString("service_slug") == "vip") { vipSource = s; break }
+        }
+        if (vipSource == null && sources.length() > 0) vipSource = sources.getJSONObject(0)
+        vipSource ?: return false
+
+        var eksenloadUrl = buildEksenloadUrl(vipSource) ?: return false
 
         // ── Step 5: Extract File ID ────────────────────────────────────────────
-        val fileIdRegex = Regex("""/(?:eplayer|eksenload)/([a-zA-Z0-9]+)""")
-        val fileId      = fileIdRegex.find(eksenloadUrl)?.groupValues?.get(1) ?: return false
+        val fileId = Regex("""/(?:eplayer|eksenload)/([a-zA-Z0-9]+)""")
+            .find(eksenloadUrl)?.groupValues?.get(1) ?: return false
 
         // ── Step 6: Follow Redirects ───────────────────────────────────────────
         val iframeHeaders = mapOf(
@@ -103,17 +154,17 @@ object Shanks {
         val iframePageRes = runCatching { app.get(eksenloadUrl, headers = iframeHeaders) }.getOrNull() ?: return false
         val finalUrl      = iframePageRes.url
 
-        // ── Step 7: Resolve Domain ─────────────────────────────────────────────
+        // ── Step 7: Try CDN Domains ────────────────────────────────────────────
         val parsedDomain = runCatching { java.net.URL(finalUrl).host }.getOrNull() ?: "eksenload.top"
         val domains      = listOf(parsedDomain, "cdn.dailymonvideo.biz", "d2.vidload.top", "d3.vidload.top").distinct()
 
-        var m3u8Url        : String? = null
-        var putperestHtml  : String? = null
+        var m3u8Url          : String? = null
+        var putperestHtml    : String? = null
         var putperestFinalUrl: String? = null
 
         val streamHeaders = mapOf(
-            "User-Agent"     to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Accept"         to "*/*, text/html",
+            "User-Agent"      to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept"          to "*/*, text/html",
             "Accept-Language" to "tr,en;q=0.9"
         )
 
@@ -123,16 +174,15 @@ object Shanks {
             val dRes        = runCatching { app.get(testUrl, headers = testHeaders) }.getOrNull() ?: continue
             if (dRes.code != 200 || !dRes.text.contains(".m3u8")) continue
 
-            val m3u8Regex    = Regex("""file:\s*['"]([^'"]+\.m3u8)['"]""", RegexOption.IGNORE_CASE)
-            val relativeM3u8 = m3u8Regex.find(dRes.text)?.groupValues?.get(1) ?: continue
+            val relativeM3u8 = Regex("""file:\s*['"]([^'"]+\.m3u8)['"]""", RegexOption.IGNORE_CASE)
+                .find(dRes.text)?.groupValues?.get(1) ?: continue
             val tentativeM3u8Url = resolveUrl(dRes.url, relativeM3u8)
 
-            // Verify stream is reachable
             val checkHeaders = streamHeaders + mapOf("Range" to "bytes=0-0", "Referer" to dRes.url)
             val checkRes     = runCatching { app.get(tentativeM3u8Url, headers = checkHeaders) }.getOrNull()
             if (checkRes != null && (checkRes.code < 400 || checkRes.code == 416)) {
-                m3u8Url          = tentativeM3u8Url
-                putperestHtml    = dRes.text
+                m3u8Url           = tentativeM3u8Url
+                putperestHtml     = dRes.text
                 putperestFinalUrl = dRes.url
                 break
             }
@@ -141,7 +191,6 @@ object Shanks {
         if (m3u8Url.isNullOrEmpty() || putperestFinalUrl.isNullOrEmpty()) return false
 
         // ── Step 8: Subtitles ──────────────────────────────────────────────────
-        // Headers required by the putperest CDN to serve subtitle files
         val subHeaders = mapOf(
             "Referer"    to putperestFinalUrl,
             "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
@@ -153,39 +202,30 @@ object Shanks {
 
         val seenSubUrls = mutableSetOf<String>()
 
-        // 8a: Parse subtitle tracks from player HTML
-        if (putperestHtml != null) {
-            val trackRegex  = Regex("""tracks:\s*\[(.*?)\]""", RegexOption.DOT_MATCHES_ALL)
-            val trackMatch  = trackRegex.find(putperestHtml)
-            if (trackMatch != null) {
-                val tracksText   = trackMatch.groupValues[1]
-                val trackObjects = tracksText.split("}").filter { it.contains("file:") || it.contains("\"file\"") }
-                for (track in trackObjects) {
-                    val fileM  = Regex("""["']?file["']?\s*:\s*['"]([^'"]+)['"]""").find(track) ?: continue
-                    val subUrl = fileM.groupValues[1]
-                    if (!subUrl.endsWith(".vtt")) continue
+        // 8a: tracks[] HTML'inden parse et
+        val trackMatch = Regex("""tracks:\s*\[(.*?)\]""", RegexOption.DOT_MATCHES_ALL).find(putperestHtml ?: "")
+        if (trackMatch != null) {
+            trackMatch.groupValues[1].split("}").filter { it.contains("file:") || it.contains("\"file\"") }
+                .forEach { track ->
+                    val subUrl = Regex("""["']?file["']?\s*:\s*['"]([^'"]+)['"]""").find(track)?.groupValues?.get(1) ?: return@forEach
+                    if (!subUrl.endsWith(".vtt")) return@forEach
                     val absUrl = resolveUrl(putperestFinalUrl, subUrl)
-                    if (!seenSubUrls.add(absUrl)) continue          // skip duplicates
-                    val labelM = Regex("""["']?label["']?\s*:\s*['"]([^'"]+)['"]""").find(track)
-                    var label  = labelM?.groupValues?.get(1)?.trim() ?: ""
-                    if (label.isEmpty()) {
-                        label = if (subUrl.contains("tur") || subUrl.contains("tr")) "Türkçe" else "English"
-                    }
+                    if (!seenSubUrls.add(absUrl)) return@forEach
+                    var label = Regex("""["']?label["']?\s*:\s*['"]([^'"]+)['"]""").find(track)?.groupValues?.get(1)?.trim() ?: ""
+                    if (label.isEmpty()) label = if (subUrl.contains("tur") || subUrl.contains("tr")) "Türkçe" else "English"
                     subtitleCallback(makeSubtitleFile(label, absUrl))
                 }
-            }
         }
 
-        // 8b: Fallback — try well-known subtitle paths if HTML parsing found nothing
+        // 8b: Fallback bilinen path'ler
         if (seenSubUrls.isEmpty()) {
             val m3u8Domain = runCatching { java.net.URL(m3u8Url).host }.getOrNull() ?: ""
             if (m3u8Domain.isNotEmpty()) {
-                val subLangs = listOf(
+                listOf(
                     "Türkçe"          to "${fileId}_tur.vtt",
                     "English"         to "${fileId}_eng.vtt",
                     "Türkçe (Forced)" to "${fileId}_tur_forced.vtt"
-                )
-                for ((label, file) in subLangs) {
+                ).forEach { (label, file) ->
                     val vttUrl   = "https://$m3u8Domain/uploads/encode/$fileId/$file"
                     val checkRes = runCatching { app.get(vttUrl, headers = subHeaders) }.getOrNull()
                     if (checkRes != null && checkRes.code == 200 && checkRes.text.contains("WEBVTT")) {
