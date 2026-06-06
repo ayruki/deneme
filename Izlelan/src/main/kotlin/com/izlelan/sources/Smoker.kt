@@ -17,13 +17,14 @@ import javax.crypto.spec.SecretKeySpec
 
 object Smoker {
     private const val tmdbApiKey = "a2f888b27315e62e471b2d587048f32e"
-    private val mainUrl = BaseUrls.get("smoker", "https://dizipal1554.com")
+    private val mainUrl = BaseUrls.get("smoker", "https://dizipal1555.com")
     private const val pbkdf2Password = "3hPn4uCjTVtfYWcjIcoJQ4cL1WWk1qxXI39egLYOmNv6IblA7eKJz68uU3eLzux1biZLCms0quEjTYniGv5z1JcKbNIsDQFSeIZOBZJz4is6pD7UyWDggWWzTLBQbHcQFpBQdClnuQaMNUHtLHTpzCvZy33p6I7wFBvL4fnXBYH84aUIyWGTRvM2G5cfoNf4705tO2kv"
 
     private val headers = mapOf(
         "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Referer" to "$mainUrl/"
     )
+
 
     private data class SearchResult(
         val name: String,
@@ -203,8 +204,9 @@ object Smoker {
         if (page.code != 200) return emptyList()
 
         val text = page.text
-        val vId = Regex("""openPlayer\s*\(\s*['"]([^'"]+)['"]""").find(text)?.groupValues?.getOrNull(1)
-            ?: queryParam(iframeUrl, "v")
+        val vId = queryParam(iframeUrl, "v")
+            ?: Regex("""openPlayer\s*\(\s*['"][^'"]+['"]\s*,\s*['"]([^'"]+)['"]""").find(text)?.groupValues?.getOrNull(1)
+            ?: Regex("""openPlayer\s*\(\s*['"]([^'"]+)['"]""").find(text)?.groupValues?.getOrNull(1)
 
         val subtitles = mutableListOf<SubtitleData>()
         val seenSubs = mutableSetOf<String>()

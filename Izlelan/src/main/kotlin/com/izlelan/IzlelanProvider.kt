@@ -376,18 +376,23 @@ class IzlelanProvider : MainAPI() {
             }
         }
 
+        com.lagradost.api.Log.d("İzlelan", "🔍 Searching links for $name...")
+
         val collectedLinks = java.util.Collections.synchronizedList(mutableListOf<ExtractorLink>())
+        val linksFound = java.util.concurrent.atomic.AtomicInteger(0)
         val customCallback = { link: ExtractorLink ->
+            linksFound.incrementAndGet()
             collectedLinks.add(link)
             Unit
         }
 
         val isMovie = type == "movie"
         val jobs = mutableListOf<kotlinx.coroutines.Deferred<Boolean>>()
+        val providersCompleted = java.util.concurrent.atomic.AtomicInteger(0)
 
         // Helper function to run source with a 10-second timeout in parallel and tag links
         fun runSource(sourceName: String, block: suspend ((ExtractorLink) -> Unit) -> Boolean) = async {
-            runCatching {
+            val success = runCatching {
                 kotlinx.coroutines.withTimeoutOrNull(10000L) {
                     block { link ->
                         val taggedLink = if (!link.source.startsWith("🇹🇷") && !link.source.startsWith("🇬🇧")) {
@@ -409,6 +414,9 @@ class IzlelanProvider : MainAPI() {
                     }
                 } ?: false
             }.getOrDefault(false)
+            val completed = providersCompleted.incrementAndGet()
+            com.lagradost.api.Log.d("İzlelan", "⏳ Progress: $completed/${jobs.size} providers (Links found: ${linksFound.get()})")
+            success
         }
 
         // Add all compatible sources to run in parallel
@@ -436,14 +444,18 @@ class IzlelanProvider : MainAPI() {
         jobs.add(runSource("🇬🇧 Chopper") { callback -> Chopper.invoke(id, type, res.season, res.episode, getSubCallbackFor("🇬🇧 Chopper"), callback) })
         jobs.add(runSource("🇬🇧 Noland") { callback -> Noland.invoke(id, type, res.season, res.episode, getSubCallbackFor("🇬🇧 Noland"), callback) })
         jobs.add(async { 
-            runCatching {
+            val success = runCatching {
                 kotlinx.coroutines.withTimeoutOrNull(10000L) {
                     TurkceAltyazi.invoke(id, imdbId, res.season, res.episode, getSubCallbackFor("TurkceAltyazi"))
                 } ?: false
             }.getOrDefault(false)
+            val completed = providersCompleted.incrementAndGet()
+            com.lagradost.api.Log.d("İzlelan", "⏳ Progress: $completed/${jobs.size} providers (Links found: ${linksFound.get()})")
+            success
         })
 
         val results = jobs.awaitAll()
+        com.lagradost.api.Log.d("İzlelan", "✅ Completed searching. Total links found: ${linksFound.get()}")
         
         // Sort collected links by preferred source order (Turkish first, then English)
         val preferredOrder = listOf(
