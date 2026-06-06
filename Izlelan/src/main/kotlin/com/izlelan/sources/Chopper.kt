@@ -139,9 +139,13 @@ object Chopper {
                             url = streamUrl,
                             type = ExtractorLinkType.M3U8
                         ) {
-                            this.referer = "https://cineby.sc/"
+                            this.referer = "https://player.videasy.to/"
                             this.quality = qVal
-                            this.headers = mapOf("Referer" to "https://cineby.sc/")
+                            this.headers = mapOf(
+                                "Referer" to "https://player.videasy.to/",
+                                "Origin" to "https://player.videasy.to",
+                                "User-Agent" to UA
+                            )
                         }
                     )
                     foundAny = true
