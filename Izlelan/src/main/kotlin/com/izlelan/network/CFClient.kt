@@ -26,36 +26,36 @@ object CFClient {
     ): NiceResponse {
         val response = app.get(
             url,
-            headers = headers,
+            headers = headers ?: emptyMap(),
             referer = referer,
             params = params,
-            cookies = cookies,
+            cookies = cookies ?: emptyMap(),
             timeout = timeout,
-            allowRedirects = allowRedirects
+            allowRedirects = allowRedirects ?: true
         )
         return if (isCloudflarePage(response)) {
             cfMutex.withLock {
                 val retryResponse = app.get(
                     url,
-                    headers = headers,
+                    headers = headers ?: emptyMap(),
                     referer = referer,
                     params = params,
-                    cookies = cookies,
+                    cookies = cookies ?: emptyMap(),
                     timeout = timeout,
                     interceptor = cfKiller,
-                    allowRedirects = allowRedirects
+                    allowRedirects = allowRedirects ?: true
                 )
                 if (isCloudflarePage(retryResponse)) {
                     cfKiller.savedCookies.clear()
                     app.get(
                         url,
-                        headers = headers,
+                        headers = headers ?: emptyMap(),
                         referer = referer,
                         params = params,
-                        cookies = cookies,
+                        cookies = cookies ?: emptyMap(),
                         timeout = timeout,
                         interceptor = cfKiller,
-                        allowRedirects = allowRedirects
+                        allowRedirects = allowRedirects ?: true
                     )
                 } else {
                     retryResponse
@@ -79,42 +79,42 @@ object CFClient {
     ): NiceResponse {
         val response = app.post(
             url,
-            headers = headers,
+            headers = headers ?: emptyMap(),
             referer = referer,
             params = params,
-            cookies = cookies,
+            cookies = cookies ?: emptyMap(),
             data = data,
             json = json,
             timeout = timeout,
-            allowRedirects = allowRedirects
+            allowRedirects = allowRedirects ?: true
         )
         return if (isCloudflarePage(response)) {
             cfMutex.withLock {
                 val retryResponse = app.post(
                     url,
-                    headers = headers,
+                    headers = headers ?: emptyMap(),
                     referer = referer,
                     params = params,
-                    cookies = cookies,
+                    cookies = cookies ?: emptyMap(),
                     data = data,
                     json = json,
                     timeout = timeout,
                     interceptor = cfKiller,
-                    allowRedirects = allowRedirects
+                    allowRedirects = allowRedirects ?: true
                 )
                 if (isCloudflarePage(retryResponse)) {
                     cfKiller.savedCookies.clear()
                     app.post(
                         url,
-                        headers = headers,
+                        headers = headers ?: emptyMap(),
                         referer = referer,
                         params = params,
-                        cookies = cookies,
+                        cookies = cookies ?: emptyMap(),
                         data = data,
                         json = json,
                         timeout = timeout,
                         interceptor = cfKiller,
-                        allowRedirects = allowRedirects
+                        allowRedirects = allowRedirects ?: true
                     )
                 } else {
                     retryResponse
