@@ -17,12 +17,12 @@ object CFClient {
 
     suspend fun get(
         url: String,
-        headers: Map<String, String> = emptyMap(),
+        headers: Map<String, String>? = null,
         referer: String? = null,
         params: Map<String, String>? = null,
         cookies: Map<String, String>? = null,
         timeout: Long? = null,
-        allowRedirects: Boolean = true
+        allowRedirects: Boolean? = null
     ): NiceResponse {
         val response = app.get(
             url,
@@ -68,14 +68,14 @@ object CFClient {
 
     suspend fun post(
         url: String,
-        headers: Map<String, String> = emptyMap(),
+        headers: Map<String, String>? = null,
         referer: String? = null,
         params: Map<String, String>? = null,
         cookies: Map<String, String>? = null,
         data: Map<String, String>? = null,
         json: Any? = null,
         timeout: Long? = null,
-        allowRedirects: Boolean = true
+        allowRedirects: Boolean? = null
     ): NiceResponse {
         val response = app.post(
             url,
