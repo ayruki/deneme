@@ -413,6 +413,7 @@ class IzlelanProvider : MainAPI() {
 
         // Add all compatible sources to run in parallel
         jobs.add(runSource("🇹🇷 Joyboy") { callback -> Joyboy.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Joyboy"), callback) })
+        jobs.add(runSource("🇹🇷 Lili") { callback -> Lili.invoke(id, type, res.season, res.episode, getSubCallbackFor("🇹🇷 Lili"), callback) })
         jobs.add(runSource("🇹🇷 Blackbeard") { callback -> Blackbeard.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇹🇷 Blackbeard"), callback) })
         jobs.add(runSource("🇬🇧 Shamrock") { callback -> Shamrock.invoke(id, type, imdbId, res.season, res.episode, getSubCallbackFor("🇬🇧 Shamrock"), callback) })
         jobs.add(runSource("🇹🇷 Imu") { callback -> Imu.invoke(id, type, res.season, res.episode, getSubCallbackFor("🇹🇷 Imu"), callback) })
@@ -447,6 +448,7 @@ class IzlelanProvider : MainAPI() {
         val preferredOrder = listOf(
             "🇹🇷 Blackbeard",
             "🇹🇷 Joyboy",
+            "🇹🇷 Lili",
             "🇬🇧 Shamrock",
             "🇹🇷 Borsalino",
             "🇹🇷 Ace",

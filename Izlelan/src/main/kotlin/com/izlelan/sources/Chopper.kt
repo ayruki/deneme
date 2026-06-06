@@ -17,8 +17,8 @@ object Chopper {
 
     private val headers = mapOf(
         "Accept" to "*/*",
-        "Origin" to "https://cineby.sc",
-        "Referer" to "https://cineby.sc/",
+        "Origin" to "https://player.videasy.to",
+        "Referer" to "https://player.videasy.to/",
         "User-Agent" to UA
     )
 
@@ -71,11 +71,11 @@ object Chopper {
 
         for (server in servers) {
             val url = if (isMovie) {
-                "https://api.videasy.net/$server/sources-with-title?title=$encTitle&mediaType=movie&year=$year&tmdbId=$id&imdbId=$imdbId"
+                "https://api.videasy.to/$server/sources-with-title?title=$encTitle&mediaType=movie&year=$year&tmdbId=$id&imdbId=$imdbId"
             } else {
                 val s = season ?: 1
                 val e = episode ?: 1
-                "https://api.videasy.net/$server/sources-with-title?title=$encTitle&mediaType=tv&year=$year&episodeId=$e&seasonId=$s&tmdbId=$id&imdbId=$imdbId"
+                "https://api.videasy.to/$server/sources-with-title?title=$encTitle&mediaType=tv&year=$year&episodeId=$e&seasonId=$s&tmdbId=$id&imdbId=$imdbId"
             }
 
             val encData = runCatching {
@@ -139,9 +139,9 @@ object Chopper {
                             url = streamUrl,
                             type = ExtractorLinkType.M3U8
                         ) {
-                            this.referer = "https://cineby.sc/"
+                            this.referer = "https://player.videasy.to/"
                             this.quality = qVal
-                            this.headers = mapOf("Referer" to "https://cineby.sc/")
+                            this.headers = mapOf("Referer" to "https://player.videasy.to/")
                         }
                     )
                     foundAny = true
