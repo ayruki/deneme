@@ -317,9 +317,17 @@ object Shamrock {
             val lang = (liMatcher.group(2) ?: "").trim()
             val subName = (liMatcher.group(3) ?: "").trim()
             if (subUrl.isNotBlank()) {
+                val cleanSubName = subName.replace(Regex("<[^<]+?>"), "").trim()
+                val finalLang = if (cleanSubName.isNotBlank() && !cleanSubName.matches(Regex("^[0-9:\\-\\s\\/_\\.]+$"))) {
+                    cleanSubName
+                } else if (lang.isNotBlank() && !lang.matches(Regex("^[0-9:\\-\\s\\/_\\.]+$"))) {
+                    lang
+                } else {
+                    "Subtitle"
+                }
                 subtitleCallback(
                     SubtitleFile(
-                        lang = if (lang.isNotBlank()) lang else "Subtitle",
+                        lang = finalLang,
                         url = subUrl
                     ).apply {
                         this.headers = headers
@@ -336,9 +344,10 @@ object Shamrock {
                 val subUrl = (fallbackLiMatcher.group(1) ?: "").replace("\\/", "/")
                 val text = (fallbackLiMatcher.group(2) ?: "").replace(Regex("<[^<]+?>"), "").trim()
                 if (subUrl.isNotBlank()) {
+                    val finalLang = if (text.isNotBlank() && !text.matches(Regex("^[0-9:\\-\\s\\/_\\.]+$"))) text else "Subtitle"
                     subtitleCallback(
                         SubtitleFile(
-                            lang = if (text.isNotBlank()) text else "Subtitle",
+                            lang = finalLang,
                             url = subUrl
                         ).apply {
                             this.headers = headers

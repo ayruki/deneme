@@ -354,7 +354,9 @@ class IzlelanProvider : MainAPI() {
                 sub.url.substringBefore("?")
             }
             if (seenSubUrls.add(normalized)) {
-                val newLabel = if (sub.lang.contains(sourceName, ignoreCase = true)) {
+                val newLabel = if (sourceName.equals("TurkceAltyazi", ignoreCase = true)) {
+                    "TurkceAltyazi"
+                } else if (sub.lang.contains(sourceName, ignoreCase = true)) {
                     sub.lang
                 } else {
                     "[$sourceName] ${sub.lang}"
@@ -443,6 +445,7 @@ class IzlelanProvider : MainAPI() {
         jobs.add(runSource("🇬🇧 Rayleigh") { callback -> Rayleigh.invoke(id, type, res.season, res.episode, getSubCallbackFor("🇬🇧 Rayleigh"), callback) })
         jobs.add(runSource("🇬🇧 Chopper") { callback -> Chopper.invoke(id, type, res.season, res.episode, getSubCallbackFor("🇬🇧 Chopper"), callback) })
         jobs.add(runSource("🇬🇧 Noland") { callback -> Noland.invoke(id, type, res.season, res.episode, getSubCallbackFor("🇬🇧 Noland"), callback) })
+        jobs.add(runSource("🇬🇧 Katakuri") { callback -> Katakuri.invoke(id, type, res.season, res.episode, getSubCallbackFor("🇬🇧 Katakuri"), callback) })
         jobs.add(async { 
             val success = runCatching {
                 kotlinx.coroutines.withTimeoutOrNull(10000L) {
@@ -475,7 +478,8 @@ class IzlelanProvider : MainAPI() {
             "🇹🇷 Imu", 
             "🇬🇧 Rayleigh", 
             "🇬🇧 Chopper",
-            "🇬🇧 Noland"
+            "🇬🇧 Noland",
+            "🇬🇧 Katakuri"
         )
         val sortedLinks = collectedLinks.sortedWith(compareBy<ExtractorLink> { link ->
             when {
