@@ -2,6 +2,7 @@ package com.izlelan.sources
 
 import com.izlelan.IzlelanProvider
 import com.izlelan.BaseUrls
+import com.izlelan.network.CFClient
 
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
@@ -55,15 +56,20 @@ object Sabo {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        // ── Step 1: IMDB ID ────────────────────────────────────────────────────
+        // ── Step 1: TMDB Details & IMDB ID ─────────────────────────────────────
+        val tmdbUrl = "https://api.themoviedb.org/3/$type/$id?api_key=$tmdbApiKey&language=en-US"
+        val tmdbRes = runCatching { app.get(tmdbUrl).parsedSafe<IzlelanProvider.MediaDetail>() }.getOrNull()
+        val titleFallback = tmdbRes?.name ?: tmdbRes?.title
+
         val imdbId = if (!imdbIdParam.isNullOrEmpty()) {
             imdbIdParam
         } else {
-            val extUrl = "https://api.themoviedb.org/3/$type/$id/external_ids?api_key=$tmdbApiKey"
-            val extRes = runCatching { app.get(extUrl).parsedSafe<IzlelanProvider.ExternalIds>() }.getOrNull()
-            extRes?.imdb_id
+            tmdbRes?.external_ids?.imdb_id ?: run {
+                val extUrl = "https://api.themoviedb.org/3/$type/$id/external_ids?api_key=$tmdbApiKey"
+                val extRes = runCatching { app.get(extUrl).parsedSafe<IzlelanProvider.ExternalIds>() }.getOrNull()
+                extRes?.imdb_id
+            }
         }
-        if (imdbId.isNullOrEmpty()) return false
 
         // ── Step 2: Search cinemacity.cc ───────────────────────────────────────
         val base = BaseUrls.get("sabo", "https://cinemacity.cc")
@@ -74,38 +80,50 @@ object Sabo {
             "Referer" to "$base/"
         )
 
-        val searchUrl = "$base/?do=search&subaction=search&story=$imdbId"
-        val searchRes = runCatching { app.get(searchUrl, headers = headers) }.getOrNull() ?: return false
-        if (searchRes.code != 200) return false
+        val results = mutableListOf<String>()
 
-        var searchArea = searchRes.text
-        if (searchArea.contains("id=\"dle-content\"")) {
-            searchArea = searchArea.substringAfter("id=\"dle-content\"")
-            if (searchArea.contains("class=\"footer\"")) {
-                searchArea = searchArea.substringBefore("class=\"footer\"")
+        suspend fun performSearch(query: String) {
+            val encodedQuery = java.net.URLEncoder.encode(query, "UTF-8")
+            val searchUrl = "$base/?do=search&subaction=search&story=$encodedQuery"
+            val searchRes = runCatching { CFClient.get(searchUrl, headers = headers) }.getOrNull() ?: return
+            if (searchRes.code != 200) return
+
+            var searchArea = searchRes.text
+            if (searchArea.contains("id=\"dle-content\"")) {
+                searchArea = searchArea.substringAfter("id=\"dle-content\"")
+                if (searchArea.contains("class=\"footer\"")) {
+                    searchArea = searchArea.substringBefore("class=\"footer\"")
+                }
+            }
+
+            val linkRegex = Regex("""href="([^"]+/(?:movies|tv-series)/[^"]+)"""")
+            linkRegex.findAll(searchArea).forEach { match ->
+                val href = match.groupValues[1]
+                val absUrl = resolveUrl(base, href)
+                if (!results.contains(absUrl)) {
+                    results.add(absUrl)
+                }
             }
         }
 
-        val results = mutableListOf<String>()
-        val linkRegex = Regex("""href="([^"]+/(?:movies|tv-series)/[^"]+)"""")
-        linkRegex.findAll(searchArea).forEach { match ->
-            val href = match.groupValues[1]
-            val absUrl = resolveUrl(base, href)
-            if (!results.contains(absUrl)) {
-                results.add(absUrl)
-            }
+        if (!imdbId.isNullOrEmpty()) {
+            performSearch(imdbId)
+        }
+
+        if (results.isEmpty() && !titleFallback.isNullOrEmpty()) {
+            performSearch(titleFallback)
         }
 
         if (results.isEmpty()) return false
 
         // ── Step 3: Match and Parse Content ────────────────────────────────────
         for (url in results) {
-            val detailRes = runCatching { app.get(url, headers = headers) }.getOrNull() ?: continue
+            val detailRes = runCatching { CFClient.get(url, headers = headers) }.getOrNull() ?: continue
             if (detailRes.code != 200) continue
             val html = detailRes.text
 
             val matchImdb = Regex("""tt\d+""").find(html)?.value
-            if (matchImdb != imdbId) continue
+            if (!imdbId.isNullOrEmpty() && matchImdb != imdbId) continue
 
             // Extract Title
             val titleMatch = Regex("""<meta[^>]*property="og:title"[^>]*content="([^"]+)"""").find(html)
